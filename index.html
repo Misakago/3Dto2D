@@ -1,0 +1,176 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>3D→2D 工程图生成</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path fill='%232b5ea7' d='M12 2 3 7v10l9 5 9-5V7z'/></svg>" />
+  <script>
+    // 在首帧前确定主题，避免闪烁
+    (() => {
+      const saved = localStorage.getItem('theme');
+      const dark = saved ? saved === 'dark' : matchMedia('(prefers-color-scheme: dark)').matches;
+      document.documentElement.dataset.theme = dark ? 'dark' : 'light';
+    })();
+  </script>
+</head>
+<body>
+  <div id="app">
+    <header class="topbar">
+      <div class="brand">
+        <md-icon class="brand-icon">architecture</md-icon>
+        <span class="md-typescale-title-medium">3D→2D 工程图</span>
+      </div>
+      <nav class="pipeline" id="pipeline" aria-label="处理步骤"></nav>
+      <div class="actions">
+        <md-icon-button id="btn-theme" title="切换深色/浅色"><md-icon>dark_mode</md-icon></md-icon-button>
+        <md-icon-button id="btn-about" title="技术方案"><md-icon>info</md-icon></md-icon-button>
+        <md-filled-button id="btn-upload"><md-icon slot="icon">upload_file</md-icon>上传模型</md-filled-button>
+        <input id="file-input" type="file" hidden />
+      </div>
+    </header>
+    <md-linear-progress id="progress" value="0"></md-linear-progress>
+
+    <main class="layout" id="layout">
+      <!-- 左：样例库 -->
+      <aside class="panel left">
+        <div class="panel-head">
+          <span class="md-typescale-title-small">样例库</span>
+          <span class="md-typescale-label-small dim">NIST MBE PMI</span>
+        </div>
+        <md-list id="samples" class="samples"></md-list>
+      </aside>
+
+      <!-- 中：3D / 2D -->
+      <section class="stage">
+        <div class="stage-head">
+          <md-tabs id="mode-tabs">
+            <md-primary-tab data-mode="split" active inline-icon><md-icon slot="icon">vertical_split</md-icon>分屏</md-primary-tab>
+            <md-primary-tab data-mode="3d" inline-icon><md-icon slot="icon">view_in_ar</md-icon>3D 模型</md-primary-tab>
+            <md-primary-tab data-mode="2d" inline-icon><md-icon slot="icon">draw</md-icon>工程图</md-primary-tab>
+          </md-tabs>
+          <span class="model-name md-typescale-label-large" id="model-label"></span>
+          <md-icon-button toggle id="btn-params" title="模型参数"><md-icon>right_panel_open</md-icon><md-icon slot="selected">right_panel_close</md-icon></md-icon-button>
+        </div>
+        <div class="stage-body mode-split" id="stage-body">
+          <!-- 3D -->
+          <div class="pane pane-3d">
+            <div id="viewer" class="viewer"></div>
+            <div class="empty-state" id="empty-3d">
+              <md-icon>deployed_code</md-icon>
+              <div class="md-typescale-title-medium">从左侧选择样例，或拖放文件到窗口</div>
+              <div class="md-typescale-body-small dim">STEP · IGES · BREP · STL · OBJ · GLB · PLY</div>
+            </div>
+            <div class="viewer-toolbar">
+              <md-icon-button data-view="iso" title="轴测"><md-icon>3d_rotation</md-icon></md-icon-button>
+              <md-icon-button data-view="front" title="主视"><md-icon>crop_portrait</md-icon></md-icon-button>
+              <md-icon-button data-view="top" title="俯视"><md-icon>vertical_align_top</md-icon></md-icon-button>
+              <md-icon-button data-view="side" title="侧视"><md-icon>border_left</md-icon></md-icon-button>
+              <span class="vsep"></span>
+              <md-icon-button toggle id="tg-features" title="特征高亮"><md-icon>radio_button_unchecked</md-icon><md-icon slot="selected">adjust</md-icon></md-icon-button>
+              <md-icon-button toggle id="tg-edges" selected title="边线"><md-icon>check_box_outline_blank</md-icon><md-icon slot="selected">select_all</md-icon></md-icon-button>
+              <md-icon-button toggle id="tg-wire" title="线框"><md-icon>grid_on</md-icon><md-icon slot="selected">grid_off</md-icon></md-icon-button>
+              <md-icon-button toggle id="tg-clip" title="剖切"><md-icon>content_cut</md-icon><md-icon slot="selected">cut</md-icon></md-icon-button>
+            </div>
+            <div class="clip-slider" id="clip-box" hidden>
+              <md-slider id="clip-slider" min="0" max="100" value="55" labeled></md-slider>
+            </div>
+            <div class="legend" id="legend" hidden>
+              <span><i style="background:#0891b2"></i>孔</span>
+              <span><i style="background:#d97706"></i>凸台/轴</span>
+              <span><i style="background:#7c3aed"></i>圆角/弧面</span>
+            </div>
+          </div>
+          <!-- 2D -->
+          <div class="pane pane-2d">
+            <div class="drawing-toolbar">
+              <md-chip-set id="proj-chips">
+                <md-filter-chip label="第一角 GB" data-proj="first" selected></md-filter-chip>
+                <md-filter-chip label="第三角 ASME" data-proj="third"></md-filter-chip>
+              </md-chip-set>
+              <md-outlined-select id="sel-paper" label="图幅" value="A3">
+                <md-select-option value="A4"><div slot="headline">A4</div></md-select-option>
+                <md-select-option value="A3" selected><div slot="headline">A3</div></md-select-option>
+                <md-select-option value="A2"><div slot="headline">A2</div></md-select-option>
+                <md-select-option value="A1"><div slot="headline">A1</div></md-select-option>
+              </md-outlined-select>
+              <md-outlined-select id="sel-up" label="向上轴" value="Z">
+                <md-select-option value="Z" selected><div slot="headline">Z 向上</div></md-select-option>
+                <md-select-option value="Y"><div slot="headline">Y 向上</div></md-select-option>
+                <md-select-option value="X"><div slot="headline">X 向上</div></md-select-option>
+              </md-outlined-select>
+              <span style="position:relative">
+                <md-outlined-button id="btn-layers"><md-icon slot="icon">layers</md-icon>图层</md-outlined-button>
+                <md-menu id="layer-menu" anchor="btn-layers" positioning="popover" stay-open-on-focusout>
+                  <md-menu-item keep-open data-opt="hidden"><md-icon slot="start">check_box</md-icon><div slot="headline">隐藏线</div></md-menu-item>
+                  <md-menu-item keep-open data-opt="centerlines"><md-icon slot="start">check_box</md-icon><div slot="headline">中心线</div></md-menu-item>
+                  <md-menu-item keep-open data-opt="dims"><md-icon slot="start">check_box</md-icon><div slot="headline">尺寸标注</div></md-menu-item>
+                  <md-menu-item keep-open data-opt="holeTable"><md-icon slot="start">check_box</md-icon><div slot="headline">孔表</div></md-menu-item>
+                  <md-menu-item keep-open data-opt="notes"><md-icon slot="start">check_box</md-icon><div slot="headline">技术要求</div></md-menu-item>
+                </md-menu>
+              </span>
+              <div class="spacer"></div>
+              <md-icon-button id="btn-ref" title="对照 NIST 原始图纸" disabled><md-icon>compare</md-icon></md-icon-button>
+              <span style="position:relative">
+                <md-filled-tonal-button id="btn-export" disabled><md-icon slot="icon">download</md-icon>导出</md-filled-tonal-button>
+                <md-menu id="export-menu" anchor="btn-export" positioning="popover">
+                  <md-menu-item data-export="svg"><md-icon slot="start">image</md-icon><div slot="headline">SVG</div><div slot="supporting-text">矢量图</div></md-menu-item>
+                  <md-menu-item data-export="dxf"><md-icon slot="start">architecture</md-icon><div slot="headline">DXF</div><div slot="supporting-text">AutoCAD / 中望</div></md-menu-item>
+                  <md-menu-item data-export="png"><md-icon slot="start">photo</md-icon><div slot="headline">PNG</div><div slot="supporting-text">300 dpi</div></md-menu-item>
+                  <md-menu-item data-export="pdf"><md-icon slot="start">picture_as_pdf</md-icon><div slot="headline">PDF</div><div slot="supporting-text">通过打印</div></md-menu-item>
+                </md-menu>
+              </span>
+            </div>
+            <div class="sheet-viewport" id="sheet-viewport">
+              <div class="sheet-canvas" id="sheet-canvas"></div>
+              <div class="sheet-tools">
+                <md-icon-button id="btn-zoom-out" title="缩小"><md-icon>remove</md-icon></md-icon-button>
+                <md-icon-button id="btn-zoom-fit" title="适应窗口"><md-icon>fit_screen</md-icon></md-icon-button>
+                <md-icon-button id="btn-zoom-in" title="放大"><md-icon>add</md-icon></md-icon-button>
+              </div>
+              <div class="empty-state" id="empty-2d">
+                <md-icon>architecture</md-icon>
+                <div class="md-typescale-title-medium">加载模型后自动生成工程图</div>
+              </div>
+            </div>
+            <div class="sheet-status md-typescale-body-small" id="sheet-status"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 右：参数（可折叠） -->
+      <aside class="panel right" id="params">
+        <div class="panel-head">
+          <span class="md-typescale-title-small">模型参数</span>
+          <md-icon-button id="btn-json" title="导出参数 JSON" disabled><md-icon>data_object</md-icon></md-icon-button>
+        </div>
+        <div id="params-body" class="params-body">
+          <div class="placeholder dim md-typescale-body-medium">加载模型后显示解析参数</div>
+        </div>
+      </aside>
+    </main>
+
+    <div id="drop-overlay" class="drop-overlay" hidden>
+      <md-icon>file_download</md-icon>
+      <div class="md-typescale-title-large">松开以加载模型</div>
+    </div>
+    <div id="toast" class="toast md-typescale-body-medium" hidden></div>
+
+    <md-dialog id="step-dialog" class="step-dialog">
+      <div slot="headline" class="step-dialog-head"><span>处理详情</span><span class="md-typescale-body-medium dim" id="step-file"></span></div>
+      <div slot="content" class="inspector">
+        <div class="inspector-nav" id="inspector-nav" role="list"></div>
+        <div class="inspector-body" id="inspector-body"></div>
+      </div>
+      <div slot="actions"><md-text-button onclick="this.closest('md-dialog').close()">关闭</md-text-button></div>
+    </md-dialog>
+
+    <md-dialog id="about-dialog">
+      <div slot="headline">技术方案</div>
+      <div slot="content" class="about md-typescale-body-medium" id="about-content"></div>
+      <div slot="actions"><md-text-button onclick="this.closest('md-dialog').close()">关闭</md-text-button></div>
+    </md-dialog>
+  </div>
+  <script type="module" src="/src/main.js"></script>
+</body>
+</html>

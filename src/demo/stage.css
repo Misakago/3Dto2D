@@ -1,0 +1,46 @@
+/* 演示舞台：仅在 ?demo 模式加载。配色与应用浅色主题一致，无发光效果 */
+body.demo-mode { width: 1440px; height: 810px; overflow: hidden; }
+body.demo-mode #app { height: 810px; }
+.demo-cam { position: absolute; left: 0; top: 0; width: 1440px; height: 810px; transform-origin: 0 0; overflow: hidden; }
+.demo-hl { position: absolute; z-index: 40; pointer-events: none; opacity: 0; border-radius: 12px;
+  box-shadow: 0 0 0 2.5px #2b5ea7, 0 0 0 4000px rgba(17, 24, 39, .22); }
+.demo-cursor { position: fixed; left: 0; top: 0; z-index: 90; pointer-events: none; opacity: 0; }
+.demo-cursor svg { position: absolute; left: -4px; top: -3px; filter: drop-shadow(0 2px 3px rgba(0, 0, 0, .3)); }
+.demo-ripple { position: fixed; z-index: 89; width: 52px; height: 52px; border-radius: 50%; pointer-events: none;
+  border: 2px solid #2b5ea7; background: rgba(43, 94, 167, .14); }
+
+.demo-caption { position: fixed; left: 0; right: 0; bottom: 34px; margin: 0 auto; width: max-content; max-width: 1240px; z-index: 80;
+  display: flex; align-items: center; gap: 14px; padding: 13px 26px; border-radius: 16px; opacity: 0; pointer-events: none;
+  background: rgba(25, 28, 32, .9); color: #fff; box-shadow: 0 8px 24px rgba(0, 0, 0, .22); }
+.demo-caption .sub { flex: none; padding: 3px 10px; border-radius: 8px; background: rgba(168, 200, 255, .18); color: #bcd3ff; font-size: 13px; font-weight: 500; }
+.demo-caption .txt { font-size: 19px; line-height: 28px; letter-spacing: .2px; }
+
+.demo-progress { position: fixed; left: 0; right: 0; bottom: 0; height: 3px; z-index: 81; background: rgba(43, 94, 167, .12); opacity: 0; }
+.demo-progress-fill { height: 100%; background: #2b5ea7; transform-origin: 0 50%; transform: scaleX(0); }
+
+.demo-chapter { position: fixed; inset: 0; z-index: 85; display: grid; place-items: center; opacity: 0; pointer-events: none; background: rgba(247, 248, 252, .94); }
+.demo-chapter .inner { display: flex; align-items: center; gap: 32px; }
+.demo-chapter .no { font: 200 116px/1 Roboto, sans-serif; color: #2b5ea7; }
+.demo-chapter .bar { width: 2px; height: 104px; background: #c4c6d0; transform-origin: 50% 50%; }
+.demo-chapter .txts { display: flex; flex-direction: column; gap: 12px; }
+.demo-chapter .t { font-size: 46px; font-weight: 500; color: #191c20; letter-spacing: 1px; }
+.demo-chapter .s { display: inline-flex; align-items: center; gap: 8px; font-size: 19px; color: #44474e; }
+.demo-chapter .s .ms { font-size: 22px; color: #2b5ea7; }
+
+.demo-card { position: fixed; inset: 0; z-index: 95; display: grid; place-content: center; justify-items: center; text-align: center; background: #f7f8fc; color: #191c20; }
+.demo-overlay .ms { font-family: 'Material Symbols Outlined'; font-weight: normal; font-style: normal; line-height: 1; letter-spacing: normal; text-transform: none; white-space: nowrap; direction: ltr; -webkit-font-feature-settings: 'liga'; font-feature-settings: 'liga'; }
+.demo-intro .logo { width: 80px; height: 80px; border-radius: 22px; background: #2b5ea7; color: #fff; display: grid; place-items: center; margin-bottom: 26px; }
+.demo-intro .logo .ms { font-size: 44px; }
+.demo-card .t1 { font-size: 52px; font-weight: 500; letter-spacing: 2px; }
+.demo-card .t2 { margin-top: 16px; font-size: 22px; color: #44474e; letter-spacing: .5px; }
+.demo-intro .pills { display: flex; gap: 12px; margin-top: 34px; }
+.demo-intro .pills span { padding: 7px 16px; border-radius: 999px; border: 1px solid #c4c6d0; background: #fff; color: #2b5ea7; font-size: 15px; }
+.demo-card .foot { position: absolute; bottom: 36px; left: 0; right: 0; font-size: 13px; color: #74777f; letter-spacing: 1px; }
+.demo-outro { display: none; opacity: 0; }
+.demo-outro .grid { display: grid; grid-template-columns: repeat(3, 290px); gap: 14px; margin-top: 40px; text-align: left; }
+.demo-outro .cell { background: #fff; border: 1px solid #c4c6d0; border-radius: 14px; padding: 16px 18px; display: grid; grid-template-columns: 34px 1fr; column-gap: 10px; row-gap: 4px; opacity: 0; }
+.demo-outro .cell .ms { grid-row: span 2; font-size: 26px; color: #2b5ea7; padding-top: 2px; }
+.demo-outro .cell b { font-size: 18px; font-weight: 500; }
+.demo-outro .cell .d { font-size: 14px; color: #44474e; line-height: 1.5; }
+
+.demo-overlay { position: fixed; inset: 0; width: 100%; height: 100%; margin: 0; padding: 0; border: 0; background: transparent; overflow: visible; pointer-events: none; color: inherit; }
