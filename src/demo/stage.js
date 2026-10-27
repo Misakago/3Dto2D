@@ -36,7 +36,7 @@ intro.innerHTML = `
   <div class="logo"><span class="ms">architecture</span></div>
   <div class="t1">3D→2D 工程图生成</div>
   <div class="t2">3D 模型自动生成工程图</div>
-  <div class="pills">${['参数解析', '特征识别', 'HLR 消隐投影', 'GB / ASME 投影', 'DXF 导出'].map(t => `<span>${t}</span>`).join('')}</div>
+  <div class="pills">${['参数解析', '特征识别', 'HLR 消隐投影', 'GB / ASME 投影', '冲模设计', 'DXF 导出'].map(t => `<span>${t}</span>`).join('')}</div>
   <div class="foot">演示零件：NIST CTC-02</div>`;
 outro.innerHTML = `
   <div class="t1">3D 模型到工程图，几秒完成</div>
@@ -44,7 +44,7 @@ outro.innerHTML = `
     ['data_array', '参数解析', '尺寸、体积、拓扑、曲面类型'],
     ['adjust', '特征识别', '孔、凸台、圆角'],
     ['architecture', '标准出图', '三视图、尺寸、孔表、标题栏'],
-    ['swap_horiz', '投影规范', 'GB / ASME'],
+    ['precision_manufacturing', '冲模设计', '展开 · 排样 · 模板 · 清单'],
     ['timeline', '过程可追溯', '每一步可查看'],
     ['download', '多格式导出', 'DXF · SVG · PNG · PDF'],
   ].map(([ic, t, d]) => `<div class="cell"><span class="ms">${ic}</span><b>${t}</b><span class="d">${d}</span></div>`).join('')}</div>

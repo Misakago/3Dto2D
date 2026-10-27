@@ -12,9 +12,9 @@ const thumbSaver = {
       req.on('data', (c) => { body += c; });
       req.on('end', () => {
         try {
-          const { id, data } = JSON.parse(body);
+          const { id, data, local } = JSON.parse(body);
           if (!/^[a-z0-9]+$/.test(id)) throw new Error('bad id');
-          const dir = path.resolve('public/samples/thumbs');
+          const dir = path.resolve(local ? 'public/samples/local/thumbs' : 'public/samples/thumbs');
           fs.mkdirSync(dir, { recursive: true });
           fs.writeFileSync(path.join(dir, id + '.webp'), Buffer.from(data.split(',')[1], 'base64'));
           res.end('ok');

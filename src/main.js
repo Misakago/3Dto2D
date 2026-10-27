@@ -20,6 +20,7 @@ import '@material/web/focus/md-focus-ring.js';
 import '@material/web/slider/slider.js';
 import '@material/web/menu/menu.js';
 import '@material/web/menu/menu-item.js';
+import '@material/web/textfield/outlined-text-field.js';
 import { styles as typescaleStyles } from '@material/web/typography/md-typescale-styles.js';
 import 'material-symbols/outlined.css';
 import './style.css';
@@ -28,7 +29,10 @@ import * as THREE from 'three';
 import { loadModel, partsToGeometries, measure, ACCEPT, OCCT_PARAMS } from './loader.js';
 import { analyzeFeatures, summarizeFeatures } from './features.js';
 import { Viewer } from './viewer.js';
-import { computeLayout, projectView, prepareGeometries, buildSheet, sheetToSVG, sheetToDXF, getViews, countSegments } from './drawing.js';
+import { computeLayout, projectView, prepareGeometries, buildSheet, sheetToSVG, sheetToDXF, sheetsToDXF, getViews, countSegments } from './drawing.js';
+import { analyzeSheetMetal } from './sheetmetal.js';
+import { DEFAULT_PARAMS, flatPattern, planStrip, designDie } from './stamping.js';
+import { sheetPrep, sheetStrip, sheetOutline, sheetAssembly, sheetPlate, sheetBOM } from './stampingSheets.js';
 import { SAMPLES } from './samples.js';
 import { now } from './clock.js';
 
@@ -75,6 +79,7 @@ const STEPS = [
   { key: 'feature', label: '特征识别', icon: 'adjust' },
   { key: 'hlr', label: '消隐投影', icon: 'layers' },
   { key: 'sheet', label: '标注出图', icon: 'architecture' },
+  { key: 'die', label: '冲模设计', icon: 'precision_manufacturing' },
 ];
 const stepStatus = {};
 function renderPipeline() {
@@ -117,16 +122,25 @@ function toast(msg, ms = 3000) {
 // ---------------- 样例库（缩略图为预生成静态文件） ----------------
 function renderSamples(activeId) {
   $('#samples').innerHTML = SAMPLES.map(s => `<md-list-item type="button" data-id="${s.id}" class="${s.id === activeId ? 'active' : ''}">
-      <img slot="start" class="thumb" src="${BASE}samples/thumbs/${s.id}.webp" alt="" loading="eager" decoding="async">
+      <img slot="start" class="thumb" src="${BASE}samples/${s.local ? 'local/thumbs' : 'thumbs'}/${s.id}.webp" alt="" loading="eager" decoding="async">
       <div slot="headline">${s.name}</div>
     </md-list-item>`).join('');
 }
 renderSamples();
+// 本地样例（不随仓库发布）：public/samples/local/manifest.json
+fetch(BASE + 'samples/local/manifest.json').then(r => (r.ok ? r.json() : [])).then((list) => {
+  if (!Array.isArray(list) || !list.length) return;
+  SAMPLES.unshift(...list.map(x => ({ ...x, local: true, file: 'local/' + x.file })));
+  renderSamples(state.model?.sample?.id);
+  const qs2 = new URLSearchParams(location.search).get('sample');
+  const hit = list.find(x => x.id === qs2);
+  if (hit && !state.model) openSample(SAMPLES.find(x => x.id === hit.id)).catch(err => toast(err.message));
+}).catch(() => {});
 async function openSample(s) {
   setProgress(-1);
   const res = await fetch(BASE + 'samples/' + s.file);
   if (!res.ok) throw new Error(res.statusText);
-  await openFile(new File([await res.blob()], s.file), s);
+  await openFile(new File([await res.blob()], s.file.split('/').pop()), s);
 }
 $('#samples').addEventListener('click', (e) => {
   const item = e.target.closest('md-list-item');
@@ -156,6 +170,8 @@ async function openFile(file, sample = null) {
   state.results = {};
   state.cache.clear();
   state.trace = { file: { name: file.name, size: file.size, lastModified: file.lastModified } };
+  state.stamp = null;
+  renderDie();
   renderSamples(sample?.id);
   $('#btn-ref').disabled = !sample;
   setProgress(-1);
@@ -179,7 +195,7 @@ async function openFile(file, sample = null) {
     setStep('feature', hasBrep ? 'done' : 'skip', featureMs);
     cur = null;
 
-    const name = loaded.step?.products?.[0] || file.name.replace(/\.[^.]+$/, '');
+    const name = sample?.name.replace(/（.*）/, '') || loaded.step?.products?.[0] || file.name.replace(/\.[^.]+$/, '');
     state.model = { ...loaded, geometries, metrics, features, faceTypes, summary, name, fileName: file.name, sample };
 
     const defUp = ['glb', 'gltf', 'obj'].includes(loaded.format) ? 'Y' : 'Z';
@@ -197,6 +213,8 @@ async function openFile(file, sample = null) {
     $('#btn-json').disabled = false;
     cur = 'hlr';
     await generateDrawing();
+    cur = 'die';
+    runStamping(true);
   } catch (err) {
     console.error(err);
     setProgress(0);
@@ -301,12 +319,13 @@ async function generateDrawing() {
   setStep('hlr', 'done', state.trace.hlrMs ?? 0);
   rebuildSheet();
   setStep('sheet', 'done', state.trace.sheetMs);
+  if (state.stamp?.sheetCache) { state.stamp.sheetCache.delete('prep'); if (state.stamp.current === 'prep') showStampSheet('prep'); }
   setProgress(1);
   $('#btn-export').disabled = false;
 }
 
 // ---------------- 参数面板 ----------------
-const openSecs = new Set(JSON.parse(localStorage.getItem('openSecs') || '["file","geom","feature"]'));
+const openSecs = new Set(JSON.parse(localStorage.getItem('openSecs') || '["file","geom","sheet","feature"]'));
 const sec = (id, icon, title, body) => `<details class="sec" data-sec="${id}" ${openSecs.has(id) ? 'open' : ''}>
   <summary><md-icon>${icon}</md-icon>${title}<md-icon class="chevron">expand_more</md-icon></summary><div class="sec-body">${body}</div></details>`;
 
@@ -354,6 +373,15 @@ function renderParams() {
       <div class="chips-wrap">${Object.entries(st.curveStats).map(([k, v]) => `<span class="mini-chip">${k} ${v}</span>`).join('')}</div>`));
   }
 
+  const sm = state.stamp?.sm;
+  if (sm?.ok) {
+    html.push(sec('sheet', 'layers', '钣金 / 展开', `<dl class="kv">
+      <dt>料厚</dt><dd>${sm.t.toFixed(2)} mm</dd>
+      <dt>折弯</dt><dd>${sm.bends.map(b => `${b.deg.toFixed(1)}°/R${b.rIn}`).join('，') || '无'}</dd>
+      <dt>展开尺寸</dt><dd>${f2n(state.stamp.flat.width)} × ${state.stamp.flat.length.toFixed(3)}</dd>
+      <dt>步距 / 料宽</dt><dd>${f2n(state.stamp.strip.pitch)} / ${f2n(state.stamp.strip.stripWidth)}</dd>
+      <dt>材料利用率</dt><dd>${(state.stamp.strip.utilization * 100).toFixed(1)}%</dd></dl>`));
+  }
   const { holes, fillets } = m.summary;
   if (holes.length || fillets.length) {
     html.push(sec('feature', 'adjust', '孔 / 轴 / 圆角', `<table class="tbl"><tr><th>类型</th><th class="r">直径</th><th class="r">数量</th><th class="r">长度</th></tr>
@@ -413,10 +441,10 @@ function totalMs() {
 }
 const kpis = (list) => `<div class="kpis">${list.map(([k, v]) => `<div class="kpi"><span>${k}</span><b>${v}</b></div>`).join('')}</div>`;
 const kvl = (list) => `<dl class="kv" style="max-width:620px">${list.map(([k, v]) => `<dt>${k}</dt><dd>${v}</dd>`).join('')}</dl>`;
-const STEP_COLORS = ['#2b5ea7', '#5b8bd6', '#0f766e', '#d97706', '#7c3aed', '#be185d'];
+const STEP_COLORS = ['#2b5ea7', '#5b8bd6', '#0f766e', '#d97706', '#7c3aed', '#be185d', '#475569'];
 const IMPL = {
   read: 'File API', parse: '自研 ISO 10303-21 解析器', mesh: 'occt-import-js（OCCT WASM）',
-  feature: '法向 PCA + Kåsa 圆拟合', hlr: 'three-edge-projection + BVH', sheet: '自研布局 / 标注引擎',
+  feature: '法向 PCA + Kåsa 圆拟合', hlr: 'three-edge-projection + BVH', sheet: '自研布局 / 标注引擎', die: '截面展开 + 规则化排样 / 模架',
 };
 
 function viewPreview(res) {
@@ -432,6 +460,20 @@ function viewPreview(res) {
 }
 
 const INSPECTORS = {
+  die() {
+    const st = state.stamp;
+    if (!st?.sm?.ok) return `<p class="desc">${esc(st?.sm?.reason || '未计算')}。冲模设计适用于等厚、单向折弯的钣金冲压件。</p>`;
+    const { sm, flat, strip, die } = st;
+    return `<p class="desc">以最大平面与反向平行面之间的距离确定料厚；沿候选折弯轴切片，取最长截面闭环，按两侧轮廓的转角识别折弯角与内 R；中性层长度按 K 因子修正得到展开长度，并将 3D 轮廓按截面弧长映射为展开图。随后按经验规则生成料带排样、工位、模板与标准件。</p>
+      ${kpis([['料厚 t', sm.t.toFixed(2)], ['折弯', sm.bends.length + ' 处'], ['展开长度', flat.length.toFixed(3)], ['展开宽度', f2n(flat.width)], ['步距', f2n(strip.pitch)], ['料宽', f2n(strip.stripWidth)], ['工位', strip.N], ['利用率', (strip.utilization * 100).toFixed(1) + '%'], ['闭合高度', f2n(die.shutHeight)], ['耗时', fmtMs(stepStatus.die?.ms)]])}
+      <h4>折弯</h4><table class="tbl"><tr><th>#</th><th class="r">角度</th><th class="r">内 R</th><th class="r">中性层 R</th><th class="r">展开位置</th></tr>
+      ${sm.bends.map((b, i) => `<tr><td>${i + 1}</td><td class="r">${b.deg.toFixed(1)}°</td><td class="r">${b.rIn}</td><td class="r">${(b.rIn + dieParams.K * sm.t).toFixed(2)}</td><td class="r">${(flat.bendLines[i] ?? 0).toFixed(2)}</td></tr>`).join('')}</table>
+      <h4>展开长度</h4>${kvl([['中性层 K=0.5', sm.midLen.toFixed(3)], [`K=${dieParams.K}`, flat.lengthK.toFixed(3)], [`调整内 R=${dieParams.rAdjust}`, flat.length.toFixed(3)], ['展开面积', flat.area.toFixed(1) + ' mm²']])}
+      <h4>工位</h4><table class="tbl"><tr><th>#</th><th>工位</th><th>冲头</th></tr>
+      ${strip.stations.map(x => `<tr><td>${x.i + 1}</td><td>${x.name}</td><td class="dim">${strip.punches.filter(p => p.station === x.i).map(p => p.name).join('、') || '—'}</td></tr>`).join('')}</table>
+      <h4>模板</h4><table class="tbl"><tr><th>代号</th><th>名称</th><th>规格</th><th>材料</th><th class="r">孔数</th></tr>
+      ${die.plates.map(p => `<tr><td>${p.code}</td><td>${p.name}</td><td>${p.L}×${p.W}×${p.T}</td><td>${p.mat}</td><td class="r">${p.holes.length}</td></tr>`).join('')}</table>`;
+  },
   overview() {
     const parts = STEPS.map((s, i) => ({ ...s, ms: stepStatus[s.key]?.status === 'done' ? stepStatus[s.key].ms || 0 : 0, color: STEP_COLORS[i] }));
     const total = parts.reduce((s, p) => s + p.ms, 0) || 1;
@@ -537,7 +579,7 @@ $('#clip-slider').addEventListener('input', e => viewer.setClip(true, e.target.v
 
 $('#mode-tabs').addEventListener('change', (e) => {
   $('#stage-body').className = 'stage-body mode-' + e.target.activeTab.dataset.mode;
-  requestAnimationFrame(() => { viewer.resize(); zoomFit(); });
+  requestAnimationFrame(() => { viewer.resize(); zoomFit(); dieZoom.fit(); });
 });
 
 // ---------------- 2D 选项 ----------------
@@ -653,6 +695,189 @@ $('#btn-json').addEventListener('click', () => {
   download(baseName() + '.params.json', JSON.stringify(data, null, 2), 'application/json');
 });
 
+// ---------------- 冲模设计 ----------------
+const dieParams = { ...DEFAULT_PARAMS };
+const DIE_STEPS = [
+  { no: '01', key: 'prep', title: '产品前期处理', icon: 'category' },
+  { no: '02', key: 'strip', title: '料带生成', icon: 'linear_scale' },
+  { no: '03', key: 'outline', title: '零件与模板外形', icon: 'crop_free' },
+  { no: '04', key: 'assembly', title: '模具总装图', icon: 'stacks' },
+  { no: '05', key: 'plates', title: '模板拆分与标注', icon: 'dashboard' },
+  { no: '06', key: 'bom', title: '标准件与零件清单', icon: 'table_view' },
+];
+
+function stampSheets() {
+  const st = state.stamp;
+  if (!st?.die) return [];
+  const list = [
+    { key: 'prep', step: '01', title: '产品前期处理', icon: 'category' },
+    { key: 'strip', step: '02', title: '料带排样图', icon: 'linear_scale' },
+    { key: 'outline', step: '03', title: '零件与模板外形', icon: 'crop_free' },
+    { key: 'assembly', step: '04', title: '模具总装图', icon: 'stacks' },
+    ...st.die.plates.map(p => ({ key: 'plate-' + p.code, step: '05', title: `${p.name} ${p.code}`, icon: 'dashboard', plate: p })),
+    { key: 'bom', step: '06', title: '零件清单', icon: 'table_view' },
+  ];
+  return list;
+}
+
+function buildStampSheet(item) {
+  const st = state.stamp;
+  const meta = { ...sheetMeta(), title: state.model.name };
+  const ctx = { meta, sm: st.sm, flat: st.flat, strip: st.strip, die: st.die, params: dieParams, results: state.results };
+  if (item.key === 'prep') return sheetPrep(ctx);
+  if (item.key === 'strip') return sheetStrip(ctx);
+  if (item.key === 'outline') return sheetOutline(ctx);
+  if (item.key === 'assembly') return sheetAssembly(ctx);
+  if (item.key === 'bom') return sheetBOM(ctx);
+  return sheetPlate({ ...ctx, plate: item.plate });
+}
+
+function computeStamping() {
+  const st = state.stamp;
+  const t0 = now();
+  st.sm = analyzeSheetMetal(state.model.parts, state.model.metrics, { K: dieParams.K });
+  if (!st.sm.ok) return now() - t0;
+  st.flat = flatPattern(st.sm, dieParams);
+  st.strip = planStrip(st.sm, st.flat, dieParams);
+  st.die = designDie(st.strip, dieParams);
+  st.sheetCache = new Map();
+  return now() - t0;
+}
+
+function runStamping(fresh = false) {
+  if (!state.model) return;
+  if (fresh || !state.stamp) state.stamp = { current: state.stamp?.current || 'prep' };
+  const ms = computeStamping();
+  state.stamp.ms = ms;
+  if (state.stamp.sm.ok) setStep('die', 'done', ms); else setStep('die', 'skip');
+  renderDie();
+  renderParams();
+}
+
+function renderDie() {
+  const st = state.stamp;
+  const ok = !!st?.sm?.ok;
+  $('#btn-die-export').disabled = !ok;
+  $('#die-empty').hidden = ok;
+  $('#die-canvas').hidden = !ok;
+  $('#die-viewport .sheet-tools').hidden = !ok;
+  if (!ok) {
+    $('#die-nav').innerHTML = DIE_STEPS.map(x => `<div class="grp"><b>${x.no}</b>${x.title}</div>`).join('');
+    $('#die-empty-title').textContent = st?.sm ? '当前模型不适用冲模设计' : '加载冲压件后自动生成冲模设计';
+    $('#die-empty-sub').textContent = st?.sm ? `${st.sm.reason}；冲模设计适用于等厚、单向折弯的钣金件` : '适用于等厚、单向折弯的钣金冲压件';
+    $('#die-status').innerHTML = '';
+    return;
+  }
+  const items = stampSheets();
+  if (!items.find(i => i.key === st.current)) st.current = 'prep';
+  let html = '';
+  for (const g of DIE_STEPS) {
+    html += `<div class="grp"><b>${g.no}</b>${g.title}</div>`;
+    for (const it of items.filter(i => i.step === g.no)) {
+      html += `<button data-key="${it.key}" class="${it.key === st.current ? 'active' : ''}"><md-ripple></md-ripple><md-icon>${it.icon}</md-icon>${it.title}</button>`;
+    }
+  }
+  $('#die-nav').innerHTML = html;
+  showStampSheet(st.current);
+  const { sm, flat, strip, die } = st;
+  $('#die-status').innerHTML = [
+    ['料厚', sm.t.toFixed(2)], ['折弯', sm.bends.length + ' 处'], ['展开', `${f2n(flat.width)} × ${flat.length.toFixed(3)}`],
+    ['步距', f2n(strip.pitch)], ['料宽', f2n(strip.stripWidth)], ['工位', strip.N], ['利用率', (strip.utilization * 100).toFixed(1) + '%'],
+    ['模板', `${die.PL}×${die.PW}`], ['闭合高度', f2n(die.shutHeight)],
+  ].map(([k, v]) => `<span>${k} <b>${v}</b></span>`).join('');
+}
+const f2n = (v) => (Math.abs(v - Math.round(v)) < 0.005 ? String(Math.round(v)) : v.toFixed(2));
+
+function currentStampSheet() {
+  const st = state.stamp;
+  const item = stampSheets().find(i => i.key === st.current);
+  if (!st.sheetCache.has(item.key)) st.sheetCache.set(item.key, buildStampSheet(item));
+  return { item, ...st.sheetCache.get(item.key) };
+}
+function showStampSheet(key) {
+  state.stamp.current = key;
+  $$('#die-nav button').forEach(b => b.classList.toggle('active', b.dataset.key === key));
+  const { sh, layout } = currentStampSheet();
+  const canvas = $('#die-canvas');
+  canvas.innerHTML = sheetToSVG(sh, layout);
+  dieZoom.layout = layout;
+  dieZoom.fit();
+}
+$('#die-nav').addEventListener('click', (e) => {
+  const b = e.target.closest('button[data-key]');
+  if (b) showStampSheet(b.dataset.key);
+});
+
+// 参数
+for (const f of $$('#die-params md-outlined-text-field')) {
+  f.value = String(dieParams[f.dataset.param]);
+  f.addEventListener('change', () => {
+    const v = parseFloat(f.value);
+    if (!isFinite(v)) { f.value = String(dieParams[f.dataset.param]); return; }
+    dieParams[f.dataset.param] = v;
+    if (state.model && state.stamp) runStamping();
+  });
+}
+
+// 图纸缩放平移（冲模设计）
+function makeSheetZoom(vpEl, canvasEl) {
+  const z = { s: 1, x: 0, y: 0, layout: null };
+  const apply = () => { canvasEl.style.transform = `translate(${z.x}px, ${z.y}px) scale(${z.s})`; };
+  z.fit = () => {
+    if (!z.layout || !canvasEl.firstElementChild) return;
+    const k = 96 / 25.4, w = vpEl.clientWidth, h = vpEl.clientHeight;
+    if (!w || !h) return;
+    z.s = Math.min((w - 24) / (z.layout.PW * k), (h - 24) / (z.layout.PH * k));
+    z.x = (w - z.layout.PW * k * z.s) / 2; z.y = (h - z.layout.PH * k * z.s) / 2;
+    apply();
+  };
+  z.zoomAt = (f, cx = vpEl.clientWidth / 2, cy = vpEl.clientHeight / 2) => {
+    const ns = Math.min(40, Math.max(0.05, z.s * f));
+    z.x = cx - (cx - z.x) * (ns / z.s); z.y = cy - (cy - z.y) * (ns / z.s); z.s = ns; apply();
+  };
+  vpEl.addEventListener('wheel', (e) => { e.preventDefault(); const r = vpEl.getBoundingClientRect(); z.zoomAt(Math.exp(-e.deltaY * 0.0015), e.clientX - r.left, e.clientY - r.top); }, { passive: false });
+  let drag = null;
+  vpEl.addEventListener('pointerdown', (e) => { if (e.target.closest('.sheet-tools')) return; drag = { x: e.clientX - z.x, y: e.clientY - z.y }; vpEl.classList.add('dragging'); vpEl.setPointerCapture(e.pointerId); });
+  vpEl.addEventListener('pointermove', (e) => { if (!drag) return; z.x = e.clientX - drag.x; z.y = e.clientY - drag.y; apply(); });
+  vpEl.addEventListener('pointerup', () => { drag = null; vpEl.classList.remove('dragging'); });
+  new ResizeObserver(() => z.fit()).observe(vpEl);
+  return z;
+}
+const dieZoom = makeSheetZoom($('#die-viewport'), $('#die-canvas'));
+$('#die-zoom-in').addEventListener('click', () => dieZoom.zoomAt(1.4));
+$('#die-zoom-out').addEventListener('click', () => dieZoom.zoomAt(1 / 1.4));
+$('#die-zoom-fit').addEventListener('click', () => dieZoom.fit());
+
+// 导出
+const dieMenu = $('#die-export-menu');
+$('#btn-die-export').addEventListener('click', () => { dieMenu.open = !dieMenu.open; });
+dieMenu.addEventListener('close-menu', (e) => {
+  const kind = e.detail.initiator?.dataset.export;
+  if (!kind || !state.stamp?.die) return;
+  const base = baseName() + '-冲模';
+  const cur = currentStampSheet();
+  if (kind === 'svg') download(`${base}-${cur.item.title}.svg`, sheetToSVG(cur.sh, cur.layout), 'image/svg+xml');
+  if (kind === 'dxf') download(`${base}-${cur.item.title}.dxf`, sheetToDXF(cur.sh, cur.layout), 'application/dxf');
+  if (kind === 'all') {
+    // 左列：工艺步骤；中列：模板拆分图（与客户图档结构一致）
+    const items = stampSheets();
+    const list = [];
+    let yL = 0, yM = 0;
+    for (const it of items) {
+      if (!state.stamp.sheetCache.has(it.key)) state.stamp.sheetCache.set(it.key, buildStampSheet(it));
+      const { sh, layout } = state.stamp.sheetCache.get(it.key);
+      if (it.step === '05') { list.push({ sheet: sh, layout, ox: 480, oy: yM }); yM -= layout.PH + 30; }
+      else { list.push({ sheet: sh, layout, ox: 0, oy: yL }); yL -= layout.PH + 30; }
+    }
+    download(`${base}-全部图纸.dxf`, sheetsToDXF(list), 'application/dxf');
+  }
+  if (kind === 'csv') {
+    const rows = [['序号', '类别', '代号', '名称', '规格', '材料', '数量', '热处理/备注'], ...state.stamp.die.bom.map(b => [b.no, b.type, b.code, b.name, b.spec, b.mat, b.qty, b.heat])];
+    const csv = '﻿' + rows.map(r => r.map(c => `"${String(c).replace(/"/g, '""')}"`).join(',')).join('\r\n');
+    download(`${base}-零件清单.csv`, csv, 'text/csv');
+  }
+});
+
 // ---------------- 关于 ----------------
 $('#about-content').innerHTML = `
 <h4>处理流水线</h4>
@@ -662,6 +887,7 @@ $('#about-content').innerHTML = `
 <li><b>特征识别</b>：B-rep 面法向协方差分析 + Kåsa 圆拟合，识别孔 / 凸台 / 圆角。</li>
 <li><b>消隐投影</b>：<a href="https://github.com/gkjohnson/three-edge-projection" target="_blank">three-edge-projection</a> + <a href="https://github.com/gkjohnson/three-mesh-bvh" target="_blank">three-mesh-bvh</a>。</li>
 <li><b>出图</b>：GB 第一角 / ASME 第三角，自动比例、尺寸、孔表、标题栏；导出 SVG / DXF / PNG / PDF。</li>
+<li><b>冲模设计</b>：钣金截面展开（K 因子、调整 R）→ 接刀图 → 料带排样（步距、料宽、工位、利用率）→ 模板外形与总装图 → 8 块模板拆分标注（孔代号与加工说明）→ 标准件与加工零件清单；模架与标准件按经验规则生成。</li>
 <li><b>UI</b>：<a href="https://github.com/material-components/material-web" target="_blank">Material Web</a> + three.js。</li>
 </ul>
 <h4>参考实现</h4>
@@ -690,7 +916,7 @@ if (import.meta.env.DEV || demoMode) {
         await openSample(s);
         await new Promise(r => setTimeout(r, 900));
         const data = viewer.renderThumbnail(360, 248);
-        const r = await fetch('/__thumb', { method: 'POST', body: JSON.stringify({ id: s.id, data }) });
+        const r = await fetch('/__thumb', { method: 'POST', body: JSON.stringify({ id: s.id, data, local: !!s.local }) });
         done.push([s.id, r.status]);
       }
       renderSamples(state.model?.sample?.id);

@@ -4,7 +4,7 @@ import { MeshBVH } from 'three-mesh-bvh';
 import { ProjectionGenerator } from 'three-edge-projection';
 
 export const PAPERS = { A4: [297, 210], A3: [420, 297], A2: [594, 420], A1: [841, 594] };
-const SCALES = [10, 5, 4, 2.5, 2, 1, 1 / 1.5, 1 / 2, 1 / 2.5, 1 / 3, 1 / 4, 1 / 5, 1 / 6, 1 / 10, 1 / 15, 1 / 20, 1 / 25, 1 / 50, 1 / 100];
+export const SCALES = [10, 5, 4, 2.5, 2, 1, 1 / 1.5, 1 / 2, 1 / 2.5, 1 / 3, 1 / 4, 1 / 5, 1 / 6, 1 / 10, 1 / 15, 1 / 20, 1 / 25, 1 / 50, 1 / 100];
 const FONT = "'FangSong','STFangsong','Noto Serif SC','Songti SC',serif";
 
 const V = (x, y, z) => new THREE.Vector3(x, y, z);
@@ -87,7 +87,7 @@ export function viewExtents(box, view, q) {
   return { x0, x1, y0, y1, w: x1 - x0, h: y1 - y0 };
 }
 
-function fmtScale(s) {
+export function fmtScale(s) {
   if (s >= 1) return `${+s.toFixed(2)}:1`;
   return `1:${+(1 / s).toFixed(2)}`;
 }
@@ -161,8 +161,10 @@ export function computeLayout({ box, q, projection, paper }) {
 }
 
 // ---------------- 图纸图元（图纸坐标 mm，y 向下） ----------------
-class Sheet {
+export class Sheet {
   constructor() { this.items = []; }
+  poly(layer, pts, closed = false) { this.items.push({ t: 'poly', layer, pts, closed }); }
+  fill(loops, color, opacity = 0.35, clip = null) { this.items.push({ t: 'fill', loops, color, opacity, clip }); }
   line(layer, x1, y1, x2, y2) { this.items.push({ t: 'line', layer, x1, y1, x2, y2 }); }
   rect(layer, x0, y0, x1, y1) { this.line(layer, x0, y0, x1, y0); this.line(layer, x1, y0, x1, y1); this.line(layer, x1, y1, x0, y1); this.line(layer, x0, y1, x0, y0); }
   text(layer, x, y, str, size = 3.5, anchor = 'start', rot = 0, extra = {}) { this.items.push({ t: 'text', layer, x, y, str, size, anchor, rot, ...extra }); }
@@ -176,9 +178,9 @@ class Sheet {
   }
 }
 
-const f2 = v => (Math.abs(v - Math.round(v)) < 0.005 ? String(Math.round(v)) : v.toFixed(2).replace(/0$/, ''));
+export const f2 = v => (Math.abs(v - Math.round(v)) < 0.005 ? String(Math.round(v)) : v.toFixed(2).replace(/0$/, ''));
 
-function dimH(sh, xa, xb, yRef, yDim, value) {
+export function dimH(sh, xa, xb, yRef, yDim, value) {
   const s = Math.sign(yDim - yRef) || 1;
   sh.line('DIM', xa, yRef + s * 1.5, xa, yDim + s * 2);
   sh.line('DIM', xb, yRef + s * 1.5, xb, yDim + s * 2);
@@ -188,7 +190,7 @@ function dimH(sh, xa, xb, yRef, yDim, value) {
   sh.text('DIMTXT', (xa + xb) / 2, yDim - 1.2, value, 3.5, 'middle');
 }
 
-function dimV(sh, ya, yb, xRef, xDim, value) {
+export function dimV(sh, ya, yb, xRef, xDim, value) {
   const s = Math.sign(xDim - xRef) || -1;
   sh.line('DIM', xRef + s * 1.5, ya, xDim + s * 2, ya);
   sh.line('DIM', xRef + s * 1.5, yb, xDim + s * 2, yb);
@@ -395,7 +397,7 @@ function projectionSymbol(sh, x, y, first) {
   if (first) { cone(x - 7); circ(x + 9); } else { circ(x - 9); cone(x + 7); }
 }
 
-function drawTitleBlock(sh, t, meta, layout, options) {
+export function drawTitleBlock(sh, t, meta, layout, options) {
   const { x0, y0, x1, y1 } = t;
   sh.rect('FRAME', x0, y0, x1, y1);
   // 列：左签名区 80 | 中 50 | 右 50
@@ -443,8 +445,12 @@ const STROKE = {
   FRAME: { w: 0.7, c: '#111' }, FRAME_THIN: { w: 0.25, c: '#111' }, THIN: { w: 0.25, c: '#111' },
   VISIBLE: { w: 0.5, c: '#0b0f17' }, HIDDEN: { w: 0.25, c: '#3a4556', dash: '2 1' },
   CENTER: { w: 0.18, c: '#b4232a', dash: '6 1 1 1' }, DIM: { w: 0.18, c: '#1d4ed8' },
+  PART: { w: 0.35, c: '#111' }, PHANTOM: { w: 0.18, c: '#9aa3ad', dash: '1.5 1' }, BEND: { w: 0.25, c: '#c62828', dash: '4 1 1 1' },
+  P1: { w: 0.3, c: '#c62828' }, P2: { w: 0.3, c: '#1565c0' }, P3: { w: 0.3, c: '#2e7d32' }, P4: { w: 0.3, c: '#6a1b9a' }, P5: { w: 0.3, c: '#ef6c00' }, P6: { w: 0.3, c: '#00838f' },
+  HOLE: { w: 0.35, c: '#111' }, NOTE: { w: 0.18, c: '#6a1b9a' },
 };
-const TEXT_FILL = { DIMTXT: '#1d4ed8', LABEL: '#4b5563', TITLE: '#111', TEXT: '#111' };
+export const PUNCH_COLORS = ['#c62828', '#1565c0', '#2e7d32', '#6a1b9a', '#ef6c00', '#00838f'];
+const TEXT_FILL = { DIMTXT: '#1d4ed8', LABEL: '#4b5563', TITLE: '#111', TEXT: '#111', NOTE: '#6a1b9a', CODE: '#c62828', HEAD: '#111' };
 
 function esc(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;'); }
 
@@ -453,6 +459,8 @@ export function sheetToSVG(sh, layout, { fresh = null } = {}) {
   const byLayer = {};
   const out = [];
   const segPaths = [];
+  const fills = [];
+  let fillId = 0;
   for (const it of sh.items) {
     if (it.t === 'line') {
       (byLayer[it.layer] ||= []).push(`M${it.x1.toFixed(2)} ${it.y1.toFixed(2)}L${it.x2.toFixed(2)} ${it.y2.toFixed(2)}`);
@@ -463,12 +471,21 @@ export function sheetToSVG(sh, layout, { fresh = null } = {}) {
       const st = STROKE[it.layer];
       segPaths.push(`<path class="v-${it.view} l-${it.layer}${fresh?.has(it.view) ? ' fresh' : ''}" d="${parts.join('')}" stroke="${st.c}" stroke-width="${st.w}"${st.dash ? ` stroke-dasharray="${st.dash}"` : ''}/>`);
     } else if (it.t === 'text') {
-      const fill = TEXT_FILL[it.layer] || '#111';
+      const fill = it.fill || TEXT_FILL[it.layer] || '#111';
       const tr = it.rot ? ` transform="rotate(${it.rot} ${it.x.toFixed(2)} ${it.y.toFixed(2)})"` : '';
-      const weight = it.layer === 'TITLE' ? ' font-weight="600"' : '';
+      const weight = it.layer === 'TITLE' || it.layer === 'HEAD' ? ' font-weight="600"' : '';
       out.push(`<text x="${it.x.toFixed(2)}" y="${it.y.toFixed(2)}" font-size="${it.size}" text-anchor="${it.anchor}" fill="${fill}"${weight}${tr}>${esc(it.str)}</text>`);
     } else if (it.t === 'solid') {
       out.push(`<polygon points="${it.pts.map(p => p.map(v => v.toFixed(2)).join(',')).join(' ')}" fill="${STROKE[it.layer]?.c || '#111'}"/>`);
+    } else if (it.t === 'poly') {
+      const st = STROKE[it.layer] || STROKE.THIN;
+      const d = it.pts.map((q, i) => (i ? 'L' : 'M') + q[0].toFixed(3) + ' ' + q[1].toFixed(3)).join('') + (it.closed ? 'Z' : '');
+      segPaths.push(`<path class="l-${it.layer}" d="${d}" stroke="${st.c}" stroke-width="${st.w}"${st.dash ? ` stroke-dasharray="${st.dash}"` : ''}/>`);
+    } else if (it.t === 'fill') {
+      const d = it.loops.map(l => l.map((q, i) => (i ? 'L' : 'M') + q[0].toFixed(3) + ' ' + q[1].toFixed(3)).join('') + 'Z').join('');
+      const id = 'c' + (fillId++);
+      const clip = it.clip ? `<clipPath id="${id}"><rect x="${it.clip[0]}" y="${it.clip[1]}" width="${it.clip[2] - it.clip[0]}" height="${it.clip[3] - it.clip[1]}"/></clipPath>` : '';
+      fills.push(`${clip}<path d="${d}" fill="${it.color}" fill-opacity="${it.opacity}" fill-rule="evenodd" stroke="none"${it.clip ? ` clip-path="url(#${id})"` : ''}/>`);
     } else if (it.t === 'circle') {
       const st = STROKE[it.layer];
       out.push(`<circle cx="${it.cx}" cy="${it.cy}" r="${it.r}" fill="none" stroke="${st.c}" stroke-width="${st.w}"/>`);
@@ -482,20 +499,24 @@ export function sheetToSVG(sh, layout, { fresh = null } = {}) {
   });
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${PW} ${PH}" width="${PW}mm" height="${PH}mm" >
 <rect width="${PW}" height="${PH}" fill="#fff"/>
+<g>${fills.join('')}</g>
 <g fill="none" stroke-linecap="round" stroke-linejoin="round">${segPaths.join('\n')}${layerPaths.join('\n')}</g>
 <g font-family="${FONT}">${out.join('\n')}</g>
 </svg>`;
 }
 
-// DXF (R12 ASCII)，中文以 \U+XXXX 转义
-export function sheetToDXF(sh, layout) {
-  const { PH } = layout;
+// DXF (R12 ASCII)，中文以 \U+XXXX 转义；可将多张图纸按偏移排布到同一模型空间
+export function sheetToDXF(sh, layout) { return sheetsToDXF([{ sheet: sh, layout, ox: 0, oy: 0 }]); }
+
+export function sheetsToDXF(list) {
   const L = [];
   const p = (...kv) => { for (let i = 0; i < kv.length; i += 2) L.push(String(kv[i]), String(kv[i + 1])); };
   const enc = (s) => String(s).replace(/[^\x20-\x7e]/g, ch => '\\U+' + ch.codePointAt(0).toString(16).toUpperCase().padStart(4, '0'));
-  const fy = y => (PH - y).toFixed(3);
-  const LAYERS = { FRAME: [7, 'CONTINUOUS'], FRAME_THIN: [7, 'CONTINUOUS'], THIN: [7, 'CONTINUOUS'], VISIBLE: [7, 'CONTINUOUS'], HIDDEN: [8, 'DASHED'], CENTER: [1, 'CENTER'], DIM: [5, 'CONTINUOUS'], DIMTXT: [5, 'CONTINUOUS'], TEXT: [7, 'CONTINUOUS'], TITLE: [7, 'CONTINUOUS'], LABEL: [8, 'CONTINUOUS'] };
-  p(0, 'SECTION', 2, 'HEADER', 9, '$ACADVER', 1, 'AC1009', 9, '$INSUNITS', 70, 4, 9, '$EXTMIN', 10, 0, 20, 0, 9, '$EXTMAX', 10, layout.PW, 20, PH, 0, 'ENDSEC');
+  const LAYERS = { FRAME: [7, 'CONTINUOUS'], FRAME_THIN: [7, 'CONTINUOUS'], THIN: [7, 'CONTINUOUS'], VISIBLE: [7, 'CONTINUOUS'], HIDDEN: [8, 'DASHED'], CENTER: [1, 'CENTER'], DIM: [5, 'CONTINUOUS'], DIMTXT: [5, 'CONTINUOUS'], TEXT: [7, 'CONTINUOUS'], TITLE: [7, 'CONTINUOUS'], LABEL: [8, 'CONTINUOUS'],
+    PART: [7, 'CONTINUOUS'], PHANTOM: [8, 'DASHED'], BEND: [1, 'CENTER'], P1: [1, 'CONTINUOUS'], P2: [5, 'CONTINUOUS'], P3: [3, 'CONTINUOUS'], P4: [6, 'CONTINUOUS'], P5: [30, 'CONTINUOUS'], P6: [4, 'CONTINUOUS'], HOLE: [7, 'CONTINUOUS'], NOTE: [6, 'CONTINUOUS'], CODE: [1, 'CONTINUOUS'], HEAD: [7, 'CONTINUOUS'] };
+  let maxX = 0, minY = 0;
+  for (const { layout, ox, oy } of list) { maxX = Math.max(maxX, ox + layout.PW); minY = Math.min(minY, oy - layout.PH); }
+  p(0, 'SECTION', 2, 'HEADER', 9, '$ACADVER', 1, 'AC1009', 9, '$INSUNITS', 70, 4, 9, '$EXTMIN', 10, 0, 20, minY, 9, '$EXTMAX', 10, maxX, 20, 0, 0, 'ENDSEC');
   p(0, 'SECTION', 2, 'TABLES');
   p(0, 'TABLE', 2, 'LTYPE', 70, 3);
   p(0, 'LTYPE', 2, 'CONTINUOUS', 70, 0, 3, 'Solid', 72, 65, 73, 0, 40, 0);
@@ -506,19 +527,25 @@ export function sheetToDXF(sh, layout) {
   for (const [name, [color, lt]] of Object.entries(LAYERS)) p(0, 'LAYER', 2, name, 70, 0, 62, color, 6, lt);
   p(0, 'ENDTAB', 0, 'ENDSEC');
   p(0, 'SECTION', 2, 'ENTITIES');
-  const line = (layer, x1, y1, x2, y2) => p(0, 'LINE', 8, layer, 10, x1.toFixed(3), 20, fy(y1), 30, 0, 11, x2.toFixed(3), 21, fy(y2), 31, 0);
-  for (const it of sh.items) {
-    if (it.t === 'line') line(it.layer, it.x1, it.y1, it.x2, it.y2);
-    else if (it.t === 'segs') { const a = it.arr; for (let i = 0; i < a.length; i += 4) line(it.layer, a[i], a[i + 1], a[i + 2], a[i + 3]); }
-    else if (it.t === 'circle') p(0, 'CIRCLE', 8, it.layer, 10, it.cx.toFixed(3), 20, fy(it.cy), 30, 0, 40, it.r);
-    else if (it.t === 'solid') {
-      const [a, b, c] = it.pts;
-      p(0, 'SOLID', 8, it.layer, 10, a[0].toFixed(3), 20, fy(a[1]), 30, 0, 11, b[0].toFixed(3), 21, fy(b[1]), 31, 0, 12, c[0].toFixed(3), 22, fy(c[1]), 32, 0, 13, c[0].toFixed(3), 23, fy(c[1]), 33, 0);
-    } else if (it.t === 'text') {
-      const h = { start: 0, middle: 1, end: 2 }[it.anchor];
-      p(0, 'TEXT', 8, it.layer, 10, it.x.toFixed(3), 20, fy(it.y), 30, 0, 40, it.size * 0.8, 1, enc(it.str));
-      if (it.rot) p(50, -it.rot);
-      if (h) p(72, h, 11, it.x.toFixed(3), 21, fy(it.y), 31, 0);
+  for (const { sheet: sh, ox, oy } of list) {
+    const fx = x => (ox + x).toFixed(3);
+    const fy = y => (oy - y).toFixed(3);
+    const lay = (l) => (LAYERS[l] ? l : 'THIN');
+    const line = (layer, x1, y1, x2, y2) => p(0, 'LINE', 8, lay(layer), 10, fx(x1), 20, fy(y1), 30, 0, 11, fx(x2), 21, fy(y2), 31, 0);
+    for (const it of sh.items) {
+      if (it.t === 'line') line(it.layer, it.x1, it.y1, it.x2, it.y2);
+      else if (it.t === 'segs') { const a = it.arr; for (let i = 0; i < a.length; i += 4) line(it.layer, a[i], a[i + 1], a[i + 2], a[i + 3]); }
+      else if (it.t === 'poly') { const q = it.pts; for (let i = 1; i < q.length; i++) line(it.layer, q[i - 1][0], q[i - 1][1], q[i][0], q[i][1]); if (it.closed && q.length > 2) line(it.layer, q[q.length - 1][0], q[q.length - 1][1], q[0][0], q[0][1]); }
+      else if (it.t === 'circle') p(0, 'CIRCLE', 8, lay(it.layer), 10, fx(it.cx), 20, fy(it.cy), 30, 0, 40, it.r);
+      else if (it.t === 'solid') {
+        const [a, b, c] = it.pts;
+        p(0, 'SOLID', 8, lay(it.layer), 10, fx(a[0]), 20, fy(a[1]), 30, 0, 11, fx(b[0]), 21, fy(b[1]), 31, 0, 12, fx(c[0]), 22, fy(c[1]), 32, 0, 13, fx(c[0]), 23, fy(c[1]), 33, 0);
+      } else if (it.t === 'text') {
+        const h = { start: 0, middle: 1, end: 2 }[it.anchor];
+        p(0, 'TEXT', 8, lay(it.layer), 10, fx(it.x), 20, fy(it.y), 30, 0, 40, it.size * 0.8, 1, enc(it.str));
+        if (it.rot) p(50, -it.rot);
+        if (h) p(72, h, 11, fx(it.x), 21, fy(it.y), 31, 0);
+      }
     }
   }
   p(0, 'ENDSEC', 0, 'EOF');

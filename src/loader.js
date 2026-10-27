@@ -110,7 +110,8 @@ export function partsToGeometries(parts) {
     g.setAttribute('position', new THREE.BufferAttribute(p.positions, 3));
     if (p.normals) g.setAttribute('normal', new THREE.BufferAttribute(p.normals, 3));
     else g.computeVertexNormals();
-    g.setIndex(new THREE.BufferAttribute(p.index, 1));
+    // 独立副本：BVH 构建会重排索引，B-rep 面的三角区间仍需原始顺序
+    g.setIndex(new THREE.BufferAttribute(p.index.slice(), 1));
     g.computeBoundingBox();
     return g;
   });

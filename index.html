@@ -48,6 +48,7 @@
             <md-primary-tab data-mode="split" active inline-icon><md-icon slot="icon">vertical_split</md-icon>分屏</md-primary-tab>
             <md-primary-tab data-mode="3d" inline-icon><md-icon slot="icon">view_in_ar</md-icon>3D 模型</md-primary-tab>
             <md-primary-tab data-mode="2d" inline-icon><md-icon slot="icon">draw</md-icon>工程图</md-primary-tab>
+            <md-primary-tab data-mode="die" inline-icon id="tab-die"><md-icon slot="icon">precision_manufacturing</md-icon>冲模设计</md-primary-tab>
           </md-tabs>
           <span class="model-name md-typescale-label-large" id="model-label"></span>
           <md-icon-button toggle id="btn-params" title="模型参数"><md-icon>right_panel_open</md-icon><md-icon slot="selected">right_panel_close</md-icon></md-icon-button>
@@ -134,6 +135,51 @@
               </div>
             </div>
             <div class="sheet-status md-typescale-body-small" id="sheet-status"></div>
+          </div>
+          <!-- 冲模设计 -->
+          <div class="pane pane-die">
+            <aside class="die-side">
+              <nav class="die-nav" id="die-nav" aria-label="冲模设计步骤"></nav>
+              <div class="die-params-box">
+                <div class="grp">设计参数</div>
+                <div class="die-params" id="die-params">
+                  <md-outlined-text-field label="K 因子" type="number" step="0.01" min="0.2" max="0.5" data-param="K"></md-outlined-text-field>
+                  <md-outlined-text-field label="调整 R" type="number" step="0.1" min="0" data-param="rAdjust"></md-outlined-text-field>
+                  <md-outlined-text-field label="搭边" type="number" step="0.5" min="0.5" data-param="web"></md-outlined-text-field>
+                  <md-outlined-text-field label="载体宽" type="number" step="0.5" min="3" data-param="carrier"></md-outlined-text-field>
+                  <md-outlined-text-field label="连接颈" type="number" step="0.5" min="0.5" data-param="neckGap"></md-outlined-text-field>
+                  <md-outlined-text-field label="导正孔 Ø" type="number" step="0.5" min="1" data-param="pilotD"></md-outlined-text-field>
+                </div>
+              </div>
+            </aside>
+            <div class="die-main">
+              <div class="drawing-toolbar die-toolbar">
+                <div class="spacer"></div>
+                <span style="position:relative">
+                  <md-filled-tonal-button id="btn-die-export" disabled><md-icon slot="icon">download</md-icon>导出</md-filled-tonal-button>
+                  <md-menu id="die-export-menu" anchor="btn-die-export" positioning="popover">
+                    <md-menu-item data-export="svg"><md-icon slot="start">image</md-icon><div slot="headline">当前图纸 SVG</div></md-menu-item>
+                    <md-menu-item data-export="dxf"><md-icon slot="start">architecture</md-icon><div slot="headline">当前图纸 DXF</div></md-menu-item>
+                    <md-menu-item data-export="all"><md-icon slot="start">folder_zip</md-icon><div slot="headline">全部图纸 DXF</div><div slot="supporting-text">按步骤排布在同一模型空间</div></md-menu-item>
+                    <md-menu-item data-export="csv"><md-icon slot="start">table_view</md-icon><div slot="headline">零件清单 CSV</div></md-menu-item>
+                  </md-menu>
+                </span>
+              </div>
+              <div class="sheet-viewport" id="die-viewport">
+                <div class="sheet-canvas" id="die-canvas"></div>
+                <div class="sheet-tools">
+                  <md-icon-button id="die-zoom-out" title="缩小"><md-icon>remove</md-icon></md-icon-button>
+                  <md-icon-button id="die-zoom-fit" title="适应窗口"><md-icon>fit_screen</md-icon></md-icon-button>
+                  <md-icon-button id="die-zoom-in" title="放大"><md-icon>add</md-icon></md-icon-button>
+                </div>
+                <div class="empty-state" id="die-empty">
+                  <md-icon>precision_manufacturing</md-icon>
+                  <div class="md-typescale-title-medium" id="die-empty-title">加载冲压件后自动生成冲模设计</div>
+                  <div class="md-typescale-body-small dim" id="die-empty-sub">适用于等厚、单向折弯的钣金冲压件</div>
+                </div>
+              </div>
+              <div class="sheet-status md-typescale-body-small" id="die-status"></div>
+            </div>
           </div>
         </div>
       </section>

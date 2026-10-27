@@ -1,4 +1,4 @@
-// 演示剧本：片头 → 01 模型解析 → 02 特征识别 → 03 自动出图 → 04 投影规范 → 05 过程追溯 → 06 参数与导出 → 片尾
+// 演示剧本：片头 → 01 模型解析 → 02 特征识别 → 03 自动出图 → 04 投影规范 → 05 过程追溯 → 06 参数与导出 → 07 冲模设计 → 片尾
 import { W, H } from './stage.js';
 
 export async function run(ctl) {
@@ -19,8 +19,8 @@ export async function run(ctl) {
     await sleep(300);
   }
   // 在图纸视口派发滚轮事件，复用应用自身的缩放
-  function wheel(factor, at, dur = 1.3) {
-    const vp = q('#sheet-viewport');
+  function wheel(factor, at, dur = 1.3, vpSel = '#sheet-viewport') {
+    const vp = q(vpSel);
     const total = -Math.log(factor) / 0.0015;
     const steps = Math.round(dur * 60);
     return (async () => {
@@ -36,6 +36,22 @@ export async function run(ctl) {
     const r = q('#sheet-canvas svg').getBoundingClientRect();
     const { PW, PH } = app().layout;
     return [r.left + (mx / PW) * r.width, r.top + (my / PH) * r.height];
+  }
+  function diePoint(mx, my) {
+    const r = q('#die-canvas svg').getBoundingClientRect();
+    return [r.left + (mx / 420) * r.width, r.top + (my / 297) * r.height];
+  }
+  async function dieSheet(key) {
+    await ctl.click(`#die-nav button[data-key="${key}"]`, { post: 120 });
+    await ctl.cursorShow(false);
+    await sleep(500);
+  }
+  async function setParam(name, v) {
+    const sel = `#die-params md-outlined-text-field[data-param="${name}"]`;
+    await ctl.click(sel, { post: 200 });
+    const f = q(sel);
+    f.value = String(v);
+    f.dispatchEvent(new Event('change'));
   }
   function orbit(angle, dur) {
     const v = window.__app.viewer;
@@ -53,6 +69,9 @@ export async function run(ctl) {
     })();
   }
   const done = (k) => q(`.step[data-step="${k}"].done`);
+  // 菜单不走动画，关闭时强制收起弹层
+  for (const id of ['#export-menu', '#die-export-menu', '#layer-menu']) if (q(id)) q(id).quick = true;
+  const closeMenu = async (id) => { const m = q(id); m.open = false; await sleep(50); m.shadowRoot?.querySelector('.menu')?.hidePopover?.(); };
   window.__demoPace = 650;
 
   // ---------- 片头 ----------
@@ -64,7 +83,7 @@ export async function run(ctl) {
   await ctl.hl(null);
 
   // ---------- 01 模型解析 ----------
-  await chapter('01', 'data_array', '模型解析', '解析 STEP 并网格化', 0.1);
+  await chapter('01', 'data_array', '模型解析', '解析 STEP 并网格化', 0.08);
   await ctl.hl('#samples md-list-item[data-id="ctc02"]', 4);
   await ctl.caption('打开铸造壳体 CTC-02', '01 模型解析');
   await sleep(1600);
@@ -84,7 +103,7 @@ export async function run(ctl) {
   const m = app().model;
   const nHole = m.features.filter(f => f.kind === 'hole').length;
   const nFillet = m.features.filter(f => f.kind === 'fillet').length;
-  await chapter('02', 'adjust', '特征识别', '自动识别孔、凸台与圆角', 0.26);
+  await chapter('02', 'adjust', '特征识别', '自动识别孔、凸台与圆角', 0.2);
   await ctl.click('#tg-features');
   await ctl.cursorShow(false);
   await ctl.focus('.pane-3d', { s: 1.25, dur: 1, dy: 0, margin: 40 });
@@ -96,7 +115,7 @@ export async function run(ctl) {
   await say('识别结果直接用于标注和孔表', '02 特征识别', 2400);
 
   // ---------- 03 自动出图 ----------
-  await chapter('03', 'architecture', '自动出图', '消隐投影，自动布局与标注', 0.44);
+  await chapter('03', 'architecture', '自动出图', '消隐投影，自动布局与标注', 0.33);
   await ctl.click('md-primary-tab[data-mode="2d"]');
   await ctl.cursorShow(false);
   await sleep(700);
@@ -116,7 +135,7 @@ export async function run(ctl) {
   await sleep(500);
 
   // ---------- 04 投影规范 ----------
-  await chapter('04', 'swap_horiz', '投影规范', 'GB 第一角 ⇄ ASME 第三角', 0.6);
+  await chapter('04', 'swap_horiz', '投影规范', 'GB 第一角 ⇄ ASME 第三角', 0.45);
   await ctl.caption('切换到 ASME 第三角投影', '04 投影规范');
   await ctl.click('md-filter-chip[data-proj="third"]');
   await ctl.cursorShow(false);
@@ -129,7 +148,7 @@ export async function run(ctl) {
   await sleep(2400);
 
   // ---------- 05 过程追溯 ----------
-  await chapter('05', 'timeline', '过程可追溯', '每一步都可查看', 0.76);
+  await chapter('05', 'timeline', '过程可追溯', '每一步都可查看', 0.55);
   await ctl.click('md-primary-tab[data-mode="split"]');
   await sleep(400);
   await ctl.caption('点击步骤查看处理详情', '05 过程追溯');
@@ -147,7 +166,7 @@ export async function run(ctl) {
   await sleep(500);
 
   // ---------- 06 参数与导出 ----------
-  await chapter('06', 'download', '参数与导出', '参数查看与图纸导出', 0.9);
+  await chapter('06', 'download', '参数与导出', '参数查看与图纸导出', 0.65);
   await ctl.click('#btn-params');
   await sleep(700);
   await ctl.cursorShow(false);
@@ -158,13 +177,62 @@ export async function run(ctl) {
   await sleep(500);
   await ctl.click('#btn-export', { raise: true });
   await say('导出 DXF、SVG、PNG、PDF', '06 参数与导出', 2600);
-  q('#export-menu').open = false;
+  await closeMenu('#export-menu');
   await sleep(400);
   await ctl.caption('浅色 / 深色主题', '06 参数与导出');
   await ctl.click('#btn-theme');
   await sleep(2200);
   await ctl.click('#btn-theme');
   await sleep(900);
+
+  // ---------- 07 冲模设计 ----------
+  await chapter('07', 'precision_manufacturing', '冲模设计', '冲压件：展开、排样、模板与清单', 0.76);
+  await ctl.hl('#samples md-list-item[data-id="terminal"]', 4);
+  await ctl.caption('打开客户冲压端子', '07 冲模设计');
+  await sleep(1400);
+  await ctl.click('#samples md-list-item[data-id="terminal"]');
+  await ctl.hl(null);
+  await ctl.cursorShow(false);
+  await ctl.waitFor(() => done('die') && app().model?.sample?.id === 'terminal');
+  await sleep(600);
+  const sm = app().stamp.sm, strip = app().stamp.strip, die = app().stamp.die;
+  await ctl.focus('#pipeline', { s: 1.7, dur: 0.8, dy: -120 });
+  await say('识别为钣金冲压件，新增“冲模设计”步骤', '07 冲模设计', 2600);
+  await ctl.unfocus(0.8);
+  await ctl.click('md-primary-tab[data-mode="die"]');
+  await ctl.cursorShow(false);
+  await sleep(700);
+  await ctl.caption(`料厚 ${sm.t.toFixed(1)}，${sm.bends.length} 处折弯，自动展开并调整 R 角`, '07 冲模设计');
+  await wheel(2.4, diePoint(290, 120), 1.3, '#die-viewport');
+  await sleep(2800);
+  q('#die-zoom-fit').click();
+  await sleep(400);
+  await dieSheet('strip');
+  await ctl.caption(`料带：步距 ${strip.pitch}，${strip.N} 个工位，利用率 ${(strip.utilization * 100).toFixed(1)}%`, '07 冲模设计');
+  await wheel(1.9, diePoint(210, 75), 1.2, '#die-viewport');
+  await sleep(2800);
+  q('#die-zoom-fit').click();
+  await sleep(400);
+  await ctl.caption('修改设计参数，图纸即时重算', '07 冲模设计');
+  await setParam('web', 4);
+  await sleep(1800);
+  await setParam('web', 2);
+  await ctl.cursorShow(false);
+  await sleep(1200);
+  await dieSheet('assembly');
+  await say(`模具总装：8 块模板，闭合高度 ${Math.round(die.shutHeight)}`, '07 冲模设计', 2800);
+  await dieSheet('plate-DIE');
+  await ctl.caption('模板逐块拆分：孔代号、坐标尺寸、加工说明', '07 冲模设计');
+  await wheel(1.8, diePoint(150, 120), 1.2, '#die-viewport');
+  await sleep(2600);
+  q('#die-zoom-fit').click();
+  await sleep(400);
+  await dieSheet('bom');
+  await say(`标准件与加工零件清单，共 ${die.bom.length} 项`, '07 冲模设计', 2600);
+  await ctl.click('#btn-die-export', { raise: true });
+  await say('导出全部图纸 DXF 与零件清单', '07 冲模设计', 2400);
+  await closeMenu('#die-export-menu');
+  await sleep(500);
 
   // ---------- 片尾 ----------
   await ctl.caption(null);

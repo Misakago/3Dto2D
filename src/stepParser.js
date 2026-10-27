@@ -47,7 +47,11 @@ function splitArgs(s) {
   return out;
 }
 
-const unq = s => (s && s.startsWith("'") ? s.slice(1, -1).replace(/''/g, "'") : s);
+// STEP 字符串：去引号，并解码 \X2\…\X0\（UTF-16 十六进制）与 \X\HH（Latin-1）
+const decodeStepString = (s) => s
+  .replace(/\\X2\\([0-9A-F]+)\\X0\\/gi, (_, h) => String.fromCharCode(...(h.match(/.{4}/g) || []).map(x => parseInt(x, 16))))
+  .replace(/\\X\\([0-9A-F]{2})/gi, (_, h) => String.fromCharCode(parseInt(h, 16)));
+const unq = s => (s && s.startsWith("'") ? decodeStepString(s.slice(1, -1).replace(/''/g, "'")) : s);
 const ref = s => (s && s[0] === '#' ? parseInt(s.slice(1), 10) : null);
 const nums = s => s.replace(/[()]/g, '').split(',').map(Number);
 

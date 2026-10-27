@@ -74,7 +74,8 @@ const VCLOCK = `(() => {
   }
 })()`;
 
-const browser = await chromium.launch({ channel: 'chrome', headless: true, args: ['--force-color-profile=srgb', '--font-render-hinting=none', '--hide-scrollbars', '--enable-unsafe-swiftshader'] });
+const CHROME = ['/Applications/Google Chrome.app/Contents/MacOS/Google Chrome', '/Applications/External/Google Chrome.app/Contents/MacOS/Google Chrome', `${process.env.HOME}/Applications/Google Chrome.app/Contents/MacOS/Google Chrome`].find(existsSync);
+const browser = await chromium.launch({ ...(process.env.CHROME_PATH || CHROME ? { executablePath: process.env.CHROME_PATH || CHROME } : { channel: 'chrome' }), headless: true, args: ['--force-color-profile=srgb', '--font-render-hinting=none', '--hide-scrollbars', '--enable-unsafe-swiftshader'] });
 const page = await browser.newPage({ viewport: { width: 1440, height: 810 }, deviceScaleFactor: SCALE, colorScheme: 'light' });
 page.on('console', (m) => { if (m.type() === 'error') console.log('[page]', m.text()); });
 page.on('pageerror', (e) => console.log('[pageerror]', e.message));

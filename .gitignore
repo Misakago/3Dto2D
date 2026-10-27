@@ -3,3 +3,5 @@ dist/
 out/
 .DS_Store
 *.log
+新要求/
+public/samples/local/
