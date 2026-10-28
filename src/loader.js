@@ -101,7 +101,7 @@ export async function loadModel(file, onStage = () => {}) {
   } else {
     throw new Error(`不支持的格式 .${ext}`);
   }
-  return { parts, step, format: ext, timings, size: buffer.byteLength };
+  return { parts, step, format: ext, timings, size: buffer.byteLength, buffer };
 }
 
 export function partsToGeometries(parts) {

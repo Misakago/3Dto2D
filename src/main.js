@@ -34,6 +34,7 @@ import { analyzeSheetMetal } from './sheetmetal.js';
 import { DEFAULT_PARAMS, flatPattern, planStrip, designDie } from './stamping.js';
 import { sheetPrep, sheetStrip, sheetOutline, sheetAssembly, sheetPlate, sheetBOM } from './stampingSheets.js';
 import { SAMPLES } from './samples.js';
+import { initMold } from './injection/moldUI.js';
 import { now } from './clock.js';
 
 document.adoptedStyleSheets.push(typescaleStyles.styleSheet);
@@ -66,6 +67,7 @@ function applyTheme(theme, persist = false) {
   if (persist) localStorage.setItem('theme', theme);
   $('#btn-theme md-icon').textContent = theme === 'dark' ? 'light_mode' : 'dark_mode';
   viewer.setTheme(theme === 'dark');
+  window.__mold?.setTheme(theme === 'dark');
 }
 applyTheme(document.documentElement.dataset.theme);
 $('#btn-theme').addEventListener('click', () => applyTheme(document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark', true));
@@ -215,6 +217,8 @@ async function openFile(file, sample = null) {
     await generateDrawing();
     cur = 'die';
     runStamping(true);
+    cur = null;
+    mold.onModel();
   } catch (err) {
     console.error(err);
     setProgress(0);
@@ -579,7 +583,7 @@ $('#clip-slider').addEventListener('input', e => viewer.setClip(true, e.target.v
 
 $('#mode-tabs').addEventListener('change', (e) => {
   $('#stage-body').className = 'stage-body mode-' + e.target.activeTab.dataset.mode;
-  requestAnimationFrame(() => { viewer.resize(); zoomFit(); dieZoom.fit(); });
+  requestAnimationFrame(() => { viewer.resize(); zoomFit(); dieZoom.fit(); if (e.target.activeTab.dataset.mode === 'mold') mold.onShow(); });
 });
 
 // ---------------- 2D 选项 ----------------
@@ -877,6 +881,9 @@ dieMenu.addEventListener('close-menu', (e) => {
     download(`${base}-零件清单.csv`, csv, 'text/csv');
   }
 });
+
+const mold = initMold({ state, toast, download, baseName });
+window.__mold = mold;
 
 // ---------------- 关于 ----------------
 $('#about-content').innerHTML = `

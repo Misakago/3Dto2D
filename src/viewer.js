@@ -109,6 +109,41 @@ export class Viewer {
     this.fit();
   }
 
+  /** 显示网格（按三角形着色），用于网格质量查看：{ pos, tris, colors(每三角形 rgb) } */
+  showMesh({ pos, tris, colors, edges = true, highlight = null }) {
+    this.root.clear();
+    const n = tris.length / 3;
+    const P = new Float32Array(n * 9), C = new Float32Array(n * 9);
+    for (let t = 0; t < n; t++) for (let k = 0; k < 3; k++) {
+      const v = tris[3 * t + k];
+      P.set([pos[3 * v], pos[3 * v + 1], pos[3 * v + 2]], 9 * t + 3 * k);
+      C.set([colors[3 * t], colors[3 * t + 1], colors[3 * t + 2]], 9 * t + 3 * k);
+    }
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.BufferAttribute(P, 3));
+    g.setAttribute('color', new THREE.BufferAttribute(C, 3));
+    g.computeVertexNormals();
+    const mat = new THREE.MeshStandardMaterial({ vertexColors: true, metalness: 0.1, roughness: 0.75, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1, clippingPlanes: this.material.clippingPlanes });
+    this.meshGroup = new THREE.Group();
+    this.meshGroup.add(new THREE.Mesh(g, mat));
+    this.edgeGroup = new THREE.Group();
+    if (edges) {
+      const wire = new THREE.WireframeGeometry(g);
+      this.edgeGroup.add(new THREE.LineSegments(wire, new THREE.LineBasicMaterial({ color: this.dark ? 0x0b0f17 : 0x334155, transparent: true, opacity: 0.35 })));
+    }
+    this.featureGroup = new THREE.Group();
+    if (highlight) {
+      // 高亮三角形（如去除的圆角面），叠加半透明红色
+      const hg = new THREE.BufferGeometry();
+      hg.setAttribute('position', new THREE.BufferAttribute(highlight, 3));
+      hg.computeVertexNormals();
+      this.featureGroup.add(new THREE.Mesh(hg, new THREE.MeshBasicMaterial({ color: 0xd32f2f, transparent: true, opacity: 0.55, side: THREE.DoubleSide, depthTest: true, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 })));
+    }
+    this.root.add(this.meshGroup, this.edgeGroup, this.featureGroup);
+    this.root.updateMatrixWorld(true);
+    this.fit();
+  }
+
   setOrientation(q) {
     this.root.quaternion.copy(q);
     this.root.updateMatrixWorld(true);

@@ -49,6 +49,7 @@
             <md-primary-tab data-mode="3d" inline-icon><md-icon slot="icon">view_in_ar</md-icon>3D 模型</md-primary-tab>
             <md-primary-tab data-mode="2d" inline-icon><md-icon slot="icon">draw</md-icon>工程图</md-primary-tab>
             <md-primary-tab data-mode="die" inline-icon id="tab-die"><md-icon slot="icon">precision_manufacturing</md-icon>冲模设计</md-primary-tab>
+            <md-primary-tab data-mode="mold" inline-icon id="tab-mold"><md-icon slot="icon">water_drop</md-icon>注塑前处理</md-primary-tab>
           </md-tabs>
           <span class="model-name md-typescale-label-large" id="model-label"></span>
           <md-icon-button toggle id="btn-params" title="模型参数"><md-icon>right_panel_open</md-icon><md-icon slot="selected">right_panel_close</md-icon></md-icon-button>
@@ -135,6 +136,64 @@
               </div>
             </div>
             <div class="sheet-status md-typescale-body-small" id="sheet-status"></div>
+          </div>
+          <!-- 注塑前处理 -->
+          <div class="pane pane-mold">
+            <aside class="die-side mold-side">
+              <div class="mold-tools" role="tablist">
+                <button class="active" data-tool="defillet"><md-ripple></md-ripple><md-icon>rounded_corner</md-icon>去除小圆角</button>
+                <button data-tool="mesh"><md-ripple></md-ripple><md-icon>change_history</md-icon>网格纵横比优化</button>
+              </div>
+              <div class="mold-panel" id="mold-defillet">
+                <div class="grp">参数</div>
+                <md-outlined-text-field id="df-r" label="圆角半径 ≤ (mm)" type="number" step="0.05" min="0.05" value="0.3"></md-outlined-text-field>
+                <div class="mold-actions">
+                  <md-outlined-button id="df-scan"><md-icon slot="icon">search</md-icon>识别圆角</md-outlined-button>
+                  <md-filled-button id="df-run" disabled><md-icon slot="icon">auto_fix_high</md-icon>去除圆角</md-filled-button>
+                </div>
+                <div class="mold-note dim" id="df-note">基于 OpenCASCADE 去特征算法（BRepAlgoAPI_Defeaturing）：删除圆角面并延伸相邻面重建实体。首次使用需加载约 48 MB 的几何内核。</div>
+              </div>
+              <div class="mold-panel" id="mold-mesh" hidden>
+                <div class="grp">参数</div>
+                <div class="die-params">
+                  <md-outlined-text-field id="ms-target" label="最大纵横比 ≤" type="number" step="0.5" min="1.5" value="4"></md-outlined-text-field>
+                  <md-outlined-text-field id="ms-len" label="目标边长 mm" type="number" step="0.1" min="0.05"></md-outlined-text-field>
+                  <md-outlined-text-field id="ms-feat" label="特征角 °" type="number" step="5" min="10" max="90" value="40"></md-outlined-text-field>
+                  <md-outlined-text-field id="ms-ctol" label="角点容差 mm" type="number" step="0.05" min="0"></md-outlined-text-field>
+                </div>
+                <div class="mold-actions">
+                  <md-outlined-button id="ms-import"><md-icon slot="icon">upload</md-icon>导入网格</md-outlined-button>
+                  <md-filled-button id="ms-run" disabled><md-icon slot="icon">auto_fix_high</md-icon>优化</md-filled-button>
+                  <input id="ms-file" type="file" accept=".stl,.nas,.bdf,.pat" hidden />
+                </div>
+                <div class="mold-note dim">纵横比 = 最长边 / 该边上的高（与 Moldflow 定义一致，正三角形 1.155）。可导入 Moldflow 导出的 STL / Nastran / Patran 网格；未导入时使用当前模型的表面网格演示。</div>
+              </div>
+            </aside>
+            <div class="die-main">
+              <div class="drawing-toolbar mold-toolbar">
+                <md-chip-set id="mold-view-chips">
+                  <md-filter-chip label="原始" data-view="before" selected></md-filter-chip>
+                  <md-filter-chip label="结果" data-view="after" disabled></md-filter-chip>
+                </md-chip-set>
+                <div class="mold-legend" id="mold-legend"></div>
+                <div class="spacer"></div>
+                <span style="position:relative">
+                  <md-filled-tonal-button id="btn-mold-export" disabled><md-icon slot="icon">download</md-icon>导出</md-filled-tonal-button>
+                  <md-menu id="mold-export-menu" anchor="btn-mold-export" positioning="popover"></md-menu>
+                </span>
+              </div>
+              <div class="mold-stage">
+                <div class="viewer" id="mold-viewer"></div>
+                <div class="empty-state" id="mold-empty">
+                  <md-icon>water_drop</md-icon>
+                  <div class="md-typescale-title-medium">注塑前处理</div>
+                  <div class="md-typescale-body-small dim">加载 STEP 模型后去除小圆角，或导入模流网格优化纵横比</div>
+                </div>
+                <div class="mold-progress" id="mold-progress" hidden><md-linear-progress id="mold-pbar" value="0"></md-linear-progress><span id="mold-ptext"></span></div>
+                <div class="mold-result" id="mold-result" hidden></div>
+              </div>
+              <div class="sheet-status md-typescale-body-small" id="mold-status"></div>
+            </div>
           </div>
           <!-- 冲模设计 -->
           <div class="pane pane-die">

@@ -105,7 +105,15 @@ const dt = 1000 / FPS;
 let f = 0;
 const t0 = Date.now();
 while (true) {
-  await page.evaluate((d) => window.__advance(d), dt);
+  // 快进：长时间计算时页面时钟按真实时间推进，但不截帧
+  if (await page.evaluate((d) => window.__advance(d).then(() => !!window.__ffwd), dt)) {
+    const r0 = Date.now();
+    while (await page.evaluate(() => !!window.__ffwd)) {
+      await new Promise((r) => setTimeout(r, 100));
+      await page.evaluate(() => window.__advance(100));
+      if ((Date.now() - r0) % 10000 < 120) process.stdout.write(`\r快进中 · 真实 ${((Date.now() - r0) / 1000).toFixed(0)}s`.padEnd(90));
+    }
+  }
   if (DRY) await new Promise((r) => setTimeout(r, dt));
   else {
     const { data } = await cdp.send('Page.captureScreenshot', { format: 'jpeg', quality: Q, optimizeForSpeed: true });

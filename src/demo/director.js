@@ -1,4 +1,4 @@
-// 演示剧本：片头 → 01 模型解析 → 02 特征识别 → 03 自动出图 → 04 投影规范 → 05 过程追溯 → 06 参数与导出 → 07 冲模设计 → 片尾
+// 演示剧本：片头 → 01 模型解析 → 02 特征识别 → 03 自动出图 → 04 投影规范 → 05 过程追溯 → 06 参数与导出 → 07 冲模设计 → 08 注塑前处理 → 片尾
 import { W, H } from './stage.js';
 
 export async function run(ctl) {
@@ -70,7 +70,7 @@ export async function run(ctl) {
   }
   const done = (k) => q(`.step[data-step="${k}"].done`);
   // 菜单不走动画，关闭时强制收起弹层
-  for (const id of ['#export-menu', '#die-export-menu', '#layer-menu']) if (q(id)) q(id).quick = true;
+  for (const id of ['#export-menu', '#die-export-menu', '#layer-menu', '#mold-export-menu']) if (q(id)) q(id).quick = true;
   const closeMenu = async (id) => { const m = q(id); m.open = false; await sleep(50); m.shadowRoot?.querySelector('.menu')?.hidePopover?.(); };
   window.__demoPace = 650;
 
@@ -83,7 +83,7 @@ export async function run(ctl) {
   await ctl.hl(null);
 
   // ---------- 01 模型解析 ----------
-  await chapter('01', 'data_array', '模型解析', '解析 STEP 并网格化', 0.08);
+  await chapter('01', 'data_array', '模型解析', '解析 STEP 并网格化', 0.07);
   await ctl.hl('#samples md-list-item[data-id="ctc02"]', 4);
   await ctl.caption('打开铸造壳体 CTC-02', '01 模型解析');
   await sleep(1600);
@@ -103,7 +103,7 @@ export async function run(ctl) {
   const m = app().model;
   const nHole = m.features.filter(f => f.kind === 'hole').length;
   const nFillet = m.features.filter(f => f.kind === 'fillet').length;
-  await chapter('02', 'adjust', '特征识别', '自动识别孔、凸台与圆角', 0.2);
+  await chapter('02', 'adjust', '特征识别', '自动识别孔、凸台与圆角', 0.17);
   await ctl.click('#tg-features');
   await ctl.cursorShow(false);
   await ctl.focus('.pane-3d', { s: 1.25, dur: 1, dy: 0, margin: 40 });
@@ -115,7 +115,7 @@ export async function run(ctl) {
   await say('识别结果直接用于标注和孔表', '02 特征识别', 2400);
 
   // ---------- 03 自动出图 ----------
-  await chapter('03', 'architecture', '自动出图', '消隐投影，自动布局与标注', 0.33);
+  await chapter('03', 'architecture', '自动出图', '消隐投影，自动布局与标注', 0.28);
   await ctl.click('md-primary-tab[data-mode="2d"]');
   await ctl.cursorShow(false);
   await sleep(700);
@@ -135,7 +135,7 @@ export async function run(ctl) {
   await sleep(500);
 
   // ---------- 04 投影规范 ----------
-  await chapter('04', 'swap_horiz', '投影规范', 'GB 第一角 ⇄ ASME 第三角', 0.45);
+  await chapter('04', 'swap_horiz', '投影规范', 'GB 第一角 ⇄ ASME 第三角', 0.38);
   await ctl.caption('切换到 ASME 第三角投影', '04 投影规范');
   await ctl.click('md-filter-chip[data-proj="third"]');
   await ctl.cursorShow(false);
@@ -148,7 +148,7 @@ export async function run(ctl) {
   await sleep(2400);
 
   // ---------- 05 过程追溯 ----------
-  await chapter('05', 'timeline', '过程可追溯', '每一步都可查看', 0.55);
+  await chapter('05', 'timeline', '过程可追溯', '每一步都可查看', 0.46);
   await ctl.click('md-primary-tab[data-mode="split"]');
   await sleep(400);
   await ctl.caption('点击步骤查看处理详情', '05 过程追溯');
@@ -166,7 +166,7 @@ export async function run(ctl) {
   await sleep(500);
 
   // ---------- 06 参数与导出 ----------
-  await chapter('06', 'download', '参数与导出', '参数查看与图纸导出', 0.65);
+  await chapter('06', 'download', '参数与导出', '参数查看与图纸导出', 0.54);
   await ctl.click('#btn-params');
   await sleep(700);
   await ctl.cursorShow(false);
@@ -186,7 +186,7 @@ export async function run(ctl) {
   await sleep(900);
 
   // ---------- 07 冲模设计 ----------
-  await chapter('07', 'precision_manufacturing', '冲模设计', '冲压件：展开、排样、模板与清单', 0.76);
+  await chapter('07', 'precision_manufacturing', '冲模设计', '冲压件：展开、排样、模板与清单', 0.63);
   await ctl.hl('#samples md-list-item[data-id="terminal"]', 4);
   await ctl.caption('打开客户冲压端子', '07 冲模设计');
   await sleep(1400);
@@ -232,6 +232,77 @@ export async function run(ctl) {
   await ctl.click('#btn-die-export', { raise: true });
   await say('导出全部图纸 DXF 与零件清单', '07 冲模设计', 2400);
   await closeMenu('#die-export-menu');
+  await sleep(500);
+
+  // ---------- 08 注塑前处理 ----------
+  await chapter('08', 'water_drop', '注塑前处理', '去除小圆角 · 网格纵横比 ≤ 4', 0.8);
+  await ctl.hl('#samples md-list-item[data-id="model1"]', 4);
+  await ctl.caption('打开客户注塑件 Model1', '08 注塑前处理');
+  await sleep(1400);
+  await ctl.click('#samples md-list-item[data-id="model1"]');
+  await ctl.hl(null);
+  await ctl.cursorShow(false);
+  await ctl.waitFor(() => app().model?.sample?.id === 'model1' && done('sheet'), 600000);
+  await sleep(600);
+  await ctl.click('md-primary-tab[data-mode="mold"]');
+  await ctl.cursorShow(false);
+  await sleep(800);
+  await ctl.caption('识别 R ≤ 0.3 的圆角：圆柱、圆环与 B 样条过渡面', '08 注塑前处理');
+  await ctl.click('#df-scan');
+  await ctl.cursorShow(false);
+  await ctl.waitFor(() => !q('#df-run').disabled, 600000);
+  await sleep(300);
+  const big = () => [...q('#mold-result').querySelectorAll('.big b')].map(b => b.textContent);
+  const [nFace, nChain] = big();
+  await ctl.focus('#mold-result', { s: 1.35, dur: 0.8, margin: 40 });
+  await say(`识别出 ${nFace} 个圆角面，相连的归为一组，共 ${nChain} 组`, '08 注塑前处理', 2800);
+  await ctl.unfocus(0.8);
+  await ctl.caption('逐组删除圆角面，延伸相邻面重建实体', '08 注塑前处理');
+  await ctl.click('#df-run');
+  await ctl.cursorShow(false);
+  await ctl.focus('#mold-progress', { s: 1.6, dur: 0.8, margin: 40 });
+  await sleep(5000);
+  await ctl.caption('完整计算约 9 分钟，以下快进', '08 注塑前处理');
+  await sleep(1800);
+  window.__ffwd = true;
+  await ctl.waitFor(() => q('#mold-progress').hidden, 3600000);
+  window.__ffwd = false;
+  await ctl.unfocus(0.4);
+  await sleep(500);
+  const [, , nDone, nLeft] = big();
+  await ctl.focus('#mold-result', { s: 1.3, dur: 0.8, margin: 40 });
+  await say(`去除 ${nDone} 个圆角面，实体校验有效，可导出 STEP`, '08 注塑前处理', 2800);
+  await say(`其余 ${nLeft} 个按原因列出，需在 CAD 中处理`, '08 注塑前处理', 2600);
+  await ctl.unfocus(0.8);
+  await ctl.caption('原始模型：红色为未去除的圆角', '08 注塑前处理');
+  await ctl.click('#mold-view-chips md-filter-chip[data-view="before"]');
+  await ctl.cursorShow(false);
+  await sleep(2600);
+  await ctl.click('#mold-view-chips md-filter-chip[data-view="after"]');
+  await ctl.cursorShow(false);
+  await sleep(1200);
+
+  await ctl.caption('模流网格：单元最大纵横比优化到 ≤ 4', '08 注塑前处理');
+  await ctl.click('.mold-tools button[data-tool="mesh"]');
+  await ctl.cursorShow(false);
+  await sleep(2200);
+  await say('此处用 Model1 表面网格演示，也可导入 Moldflow 导出的 STL / Nastran / Patran 网格', '08 注塑前处理', 3000);
+  await ctl.caption('重网格并逐个修复超标单元', '08 注塑前处理');
+  await ctl.click('#ms-run');
+  await ctl.cursorShow(false);
+  await ctl.waitFor(() => !q('#ms-run').disabled && q('#mold-progress').hidden, 600000);
+  await sleep(500);
+  const ar = big();
+  await ctl.focus('#mold-result', { s: 1.3, dur: 0.8, margin: 40 });
+  await say(`最大纵横比 ${ar[0]} → ${ar[1]}，超标单元 ${ar[2]} → ${ar[3]}`, '08 注塑前处理', 3000);
+  await ctl.unfocus(0.8);
+  await ctl.caption('颜色表示纵横比，节点投影回原曲面', '08 注塑前处理');
+  await ctl.focus('.mold-stage', { s: 1.5, dur: 1, margin: 40 });
+  await sleep(2800);
+  await ctl.unfocus(0.8);
+  await ctl.click('#btn-mold-export', { raise: true });
+  await say('导出 Nastran / STL 网格', '08 注塑前处理', 2200);
+  await closeMenu('#mold-export-menu');
   await sleep(500);
 
   // ---------- 片尾 ----------

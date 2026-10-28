@@ -141,13 +141,42 @@ body {
 /* ---------- 舞台 ---------- */
 .stage { min-width: 0; min-height: 0; display: flex; flex-direction: column; background: var(--md-sys-color-surface); }
 .stage-head { display: flex; align-items: center; gap: 12px; padding-right: 8px; border-bottom: 1px solid var(--md-sys-color-outline-variant); background: var(--md-sys-color-surface-container-lowest); }
-.stage-head md-tabs { --md-primary-tab-container-color: transparent; --md-primary-tab-container-height: 44px; flex: none; width: 500px; --md-divider-thickness: 0; }
+.stage-head md-tabs { --md-primary-tab-container-color: transparent; --md-primary-tab-container-height: 44px; flex: none; width: 640px; --md-divider-thickness: 0; }
 .model-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--md-sys-color-on-surface-variant); text-align: right; }
 .stage-body { flex: 1; min-height: 0; display: grid; }
 .stage-body.mode-split { grid-template-columns: minmax(0, 0.85fr) minmax(0, 1.15fr); }
 .stage-body.mode-3d, .stage-body.mode-2d { grid-template-columns: 1fr; }
 .stage-body.mode-3d .pane-2d, .stage-body.mode-2d .pane-3d { display: none; }
 .stage-body:not(.mode-die) .pane-die { display: none; }
+.stage-body:not(.mode-mold) .pane-mold { display: none; }
+.stage-body.mode-mold { grid-template-columns: 1fr; }
+.stage-body.mode-mold .pane-3d, .stage-body.mode-mold .pane-2d { display: none; }
+.pane-mold { display: grid; grid-template-columns: 248px minmax(0, 1fr); background: var(--md-sys-color-surface-container-lowest); }
+.mold-side { padding: 8px 12px 12px; gap: 8px; overflow: auto; }
+.mold-tools { display: grid; gap: 4px; }
+.mold-tools button { position: relative; display: flex; align-items: center; gap: 8px; border: 0; background: transparent; color: var(--md-sys-color-on-surface); font: 13px/1.3 var(--md-ref-typeface-plain); text-align: left; padding: 9px 10px; border-radius: 8px; cursor: pointer; }
+.mold-tools button md-icon { font-size: 18px; width: 18px; height: 18px; color: var(--md-sys-color-on-surface-variant); }
+.mold-tools button.active { background: var(--md-sys-color-secondary-container); color: var(--md-sys-color-on-secondary-container); }
+.mold-panel { display: grid; gap: 10px; border-top: 1px solid var(--md-sys-color-outline-variant); padding-top: 4px; }
+.mold-panel .grp { font: 500 12px/1.3 var(--md-ref-typeface-plain); color: var(--md-sys-color-on-surface-variant); padding-top: 8px; }
+.mold-panel > md-outlined-text-field { --md-outlined-field-top-space: 6px; --md-outlined-field-bottom-space: 6px; --md-outlined-text-field-container-shape: 8px; }
+.mold-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.mold-note { font-size: 12px; line-height: 1.6; }
+.mold-stage { position: relative; flex: 1; min-height: 0; background: var(--viewer-bg); }
+.mold-progress { position: absolute; left: 50%; top: 16px; transform: translateX(-50%); width: min(420px, 80%); display: grid; gap: 6px; padding: 10px 14px; border-radius: 12px; background: var(--md-sys-color-surface-container-lowest); border: 1px solid var(--md-sys-color-outline-variant); font-size: 12.5px; color: var(--md-sys-color-on-surface-variant); }
+.mold-result { position: absolute; right: 12px; top: 12px; width: 300px; max-height: calc(100% - 24px); overflow: auto; padding: 12px 14px; border-radius: 12px; background: var(--md-sys-color-surface-container-lowest); border: 1px solid var(--md-sys-color-outline-variant); font-size: 12.5px; }
+.mold-result h4 { margin: 0 0 8px; font: 500 13px/1.4 var(--md-ref-typeface-plain); }
+.mold-result .big { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-bottom: 10px; }
+.mold-result .big div { background: var(--md-sys-color-surface-container); border-radius: 8px; padding: 6px 8px; }
+.mold-result .big b { display: block; font-size: 16px; font-weight: 500; font-variant-numeric: tabular-nums; }
+.mold-result .big span { font-size: 11px; color: var(--md-sys-color-on-surface-variant); }
+.mold-result .ok { color: #2e7d32; } .mold-result .bad { color: #c62828; }
+.mold-legend { display: flex; gap: 10px; font-size: 12px; color: var(--md-sys-color-on-surface-variant); flex-wrap: wrap; }
+.mold-legend i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 4px; vertical-align: -1px; }
+.ar-hist { display: grid; gap: 3px; margin: 6px 0 10px; }
+.ar-hist .row { display: grid; grid-template-columns: 56px 1fr 1fr; gap: 6px; align-items: center; font-size: 11.5px; }
+.ar-hist .bar2 { height: 6px; border-radius: 3px; background: var(--md-sys-color-surface-container-highest); overflow: hidden; }
+.ar-hist .bar2 i { display: block; height: 100%; }
 .stage-body.mode-die { grid-template-columns: 1fr; }
 .stage-body.mode-die .pane-3d, .stage-body.mode-die .pane-2d { display: none; }
 .pane-die { display: grid; grid-template-columns: 216px minmax(0, 1fr); background: var(--md-sys-color-surface-container-lowest); }
